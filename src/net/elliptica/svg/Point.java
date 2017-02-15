@@ -30,7 +30,7 @@ public class Point extends java.awt.geom.Point2D.Double implements Comparable<Po
 
 	@Override
 	public String toString() {
-		return String.format("(%6.3f, %6.3f)", x, y);
+		return String.format("(%06.2f, %06.2f)", x, y);
 	}
 
 }

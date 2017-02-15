@@ -83,6 +83,8 @@ class BoldMapper extends CharMapper {
 	@Override
 	char map(int code, PDFont font) throws IOException {
 		switch (code){
+			case 24:
+				return '-';
 			case 55:
 				return '´';
 			default:
@@ -106,6 +108,10 @@ class ItalicMapper extends CharMapper {
 	@Override
 	char map(int code, PDFont font) throws IOException {
 		switch (code){
+			case 42:
+				return '-';
+			case 17:
+				return '´';
 			default:
 				return super.map(code, font);
 		}
@@ -127,6 +133,10 @@ class BoldItalicMapper extends CharMapper {
 	@Override
 	char map(int code, PDFont font) throws IOException {
 		switch (code){
+			case 4:
+				return '´';
+			case 35:
+				return '-';
 			default:
 				return super.map(code, font);
 		}

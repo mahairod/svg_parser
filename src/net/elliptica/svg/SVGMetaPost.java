@@ -162,11 +162,13 @@ public class SVGMetaPost {
 	PDDocument document = PDDocument.load( new File(pdfFile) );
 
 	String prefix = pdfFile.substring(0, pdfFile.length() - 4);
-	PDFGraphicsStreamEngine engine = new MorphemStreamEngine(null);
-	int curPage = 0;
+	MorphemStreamEngine engine = new MorphemStreamEngine(null);
+	int curPage = 1;
+	engine.processPage(document.getPage(32));
 	for (PDPage page : document.getPages()) {
-		if (curPage > 33)
-		engine.processPage(page);
+		if (curPage > 31)
+//		engine.processPage(page);
+		engine.saveState();
 		curPage++;
 //		PDResources resources = page.getResources();
 		// extract all fonts which are part of the page resources
@@ -189,7 +191,7 @@ public class SVGMetaPost {
 //			printNode(nl.item(i*2+1), 1 );
 		}
 
-	printNode(svgDocument.getChildNodes().item(0), 0);
+//	printNode(svgDocument.getChildNodes().item(0), 0);
   }
   static void printNode(Node node, int level){
 	  ident(level);
