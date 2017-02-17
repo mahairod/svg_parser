@@ -37,13 +37,16 @@ public class Line extends Line2D.Double implements Comparable<Line> {
 
 	@Override
 	public String toString() {
-		return String.format("(%06.2f, %06.2f) - (%06.2f, %06.2f)", y1, x1, y2, x2);
+		return String.format("(%05.1f, %05.1f) - (%05.1f, %05.1f): %5.1f", y1, x1, y2, x2, y2-y1);
 
 	}
 
 	boolean isCovered(Point p){
-		return y1 -1.3 < p.y && p.y < y2 && x1 < p.x;
+		return y1 -1.3 < p.y && p.y < y2 && x1 < p.x + 0.5;
 	}
+
+	boolean rowSym;
+
 /*
 	@Override
 	public int compareTo(Line o) {

@@ -41,7 +41,6 @@ public class SVGMetaPostTest {
 		SVGMetaPost.parsePage(document, pageInd, engine);
 		Set<WGroup> groups = engine.pageGroups.get(pageInd);
 		assertNotNull(groups);
-		assertEquals(32, groups.size());
 		int[] exp_sizes = {
 			11,	//glob
 			0, // ->
@@ -53,9 +52,37 @@ public class SVGMetaPostTest {
 			2, // авитатор
 			1, // авит-ский / 8
 			0, // ->
-			11, 2, 4, 9, 2, 3, 6, 6};
+			9,	//авиа/ба´за /10
+			0,	// ->
+			1,	//авиапочт-о´в-ый
+			0,	// ->
+			1,	//авиаспорт-сме´н /14
+			0,	// ->
+			2,	//авто´бус-н-ый /16
+			0,	// ->
+			3,	//автогра´ф([-иj-a] /18
+			1,	//автограф-и´ческ-ий¹
+			0,	// -> /20
+			8,	// автоматчик /21
+			0,	// ->
+			2,	// автоматично /23
+			1,	//автоматически /24
+			0,	// ->
+			3,	// автоматизироваться /26
+			5,	// автомобильчик, автомоби´ль-н(ый)
+			1,	//автомобилист-к-а /28
+			4,	// авто/гон(ка) /29
+			0,	// ->
+			1,	//автогонщик /31
+			0,	// ->
+			0, 0,
+			1,	// автодорожный /33
+		};
 		int[] act_sizes = groups.stream().mapToInt(wg -> wg.words.size()).toArray();
 		assertArrayEquals(exp_sizes, act_sizes);
+		for (WGroup group: groups){
+			assertTrue("Inconsistent group " + group.toString(), group.words.size()>1 || group.getGroupLine().rowSym);
+		}
 	}
 
 	static PDDocument document;

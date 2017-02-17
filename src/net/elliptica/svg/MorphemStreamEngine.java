@@ -200,23 +200,27 @@ public class MorphemStreamEngine extends PDFGraphicsStreamEngine {
 				refreshAccum_("\n");
 				ps.println();
 				ps.print("\u001b[34;47m\t\t\t\u001b[0m");
-//				ps.println("\t\t\t\t");
 				printTabs(x);
 			}
 		}
 		// case of new line continuation
+		boolean sep = false;
 		if (linestate.wordFinished() && text.startsWith("→")){
 			if (midState()){
 				refreshAccum_("");
 				popState();
 			}
+			sep = true;
 			text = "";
 		}
 
 		linestate.coord.x += span;
 		refreshAccum(mapper.getSing() + text, string);
 		ps.print(mapper.getFormat() + text);
-
+		if (sep){
+			linestate.contin = true;
+			sep = false;
+		}
 	}
 	
 	private PrintStream ps = System.out;
@@ -256,17 +260,19 @@ public class MorphemStreamEngine extends PDFGraphicsStreamEngine {
 		}
 	}
 
-	private void insertSep() {
+	private void insertSep(double offs) {
 		Line l = new Line(linestate.coord, linestate.coord);
-		l.x1 += linestate.len;
-		l.x2 += linestate.len;
+		l.x1 += offs;
+		l.x2 += offs;
 		l.y2 += 5;
+		l.rowSym = true;
 		verticalSeparators.add(l);
 	}
 
 	class LineState implements Cloneable {
 		private boolean contLocker = false;
 		private boolean wordFinished = false;
+		private boolean contin = false;
 		private String accumulator = "";
 		private double len = 0;
 		private Word previous;
@@ -308,6 +314,7 @@ public class MorphemStreamEngine extends PDFGraphicsStreamEngine {
 				contLocker = false;
 			}
 			wordFinished = false;
+			contin = false;
 		}
 		void finishWord(boolean contLine){
 			wordFinished = true;
@@ -335,7 +342,7 @@ public class MorphemStreamEngine extends PDFGraphicsStreamEngine {
 			if (newVal.endsWith("→") || newVal.equals("\t")){
 				linestate.finishWord(true);
 				if (newVal.endsWith("→")){
-					insertSep();
+					insertSep(linestate.len);
 				}
 			} else if (newVal.endsWith("\n")){
 				linestate.finishWord(false);
@@ -351,6 +358,9 @@ public class MorphemStreamEngine extends PDFGraphicsStreamEngine {
 			linestate.accumulator = newVal;
 			linestate.previous = w;
 			linestate.setCodes(codes);
+			if (linestate.contin){
+				insertSep(0);
+			}
 
 			// reset state
 			linestate.resetContinue();
@@ -453,9 +463,11 @@ public class MorphemStreamEngine extends PDFGraphicsStreamEngine {
 
 			WGroup group = new WGroup(l, new TreeSet<>());
 			groups.add(group);
-			
+
+			int counter = 0;
 			for (Map.Entry<Point,Word> entry: textsRegions.entrySet()){
 				Point loc = entry.getKey();
+				counter++;
 				if (!l.isCovered(loc)){
 					continue;
 				}
@@ -463,7 +475,7 @@ public class MorphemStreamEngine extends PDFGraphicsStreamEngine {
 				WGroup og = w.getGroup();
 				if (og== null || og.getGroupLine().compareTo(l) <0){
 					if (og!=null){
-						w.getGroup().deleteWord(w);
+						og.deleteWord(w);
 					}
 					w.setGroup(group);
 					group.addWord(w);
