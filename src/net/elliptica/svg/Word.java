@@ -14,7 +14,7 @@ package net.elliptica.svg;
  *
  * @author Антон Астафьев <anton@astafiev.me> (Anton Astafiev)
  */
-public class Word {
+public class Word implements Comparable<Word> {
 
 	public Word(String line, Word base) {
 		this.line = line;
@@ -22,6 +22,8 @@ public class Word {
 	}
 	private final String line;
 	private final Word base;
+	private WGroup group;
+	
 
 	@Override
 	public String toString() {
@@ -31,6 +33,23 @@ public class Word {
 		}
 		return main + " -> " + base.toString();
 	}
-	
+
+	public String toShortString() {
+		String main = "\nw{" + line + "}";
+		return main;
+	}
+
+	@Override
+	public int compareTo(Word o) {
+		return line.compareTo(o.line);
+	}
+
+	void setGroup(WGroup group){
+		this.group = group;
+	}
+
+	WGroup getGroup() {
+		return group;
+	}
 
 }

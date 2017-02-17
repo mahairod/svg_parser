@@ -30,8 +30,15 @@ import org.apache.pdfbox.pdmodel.graphics.state.PDTextState;
 import org.apache.pdfbox.util.Matrix;
 import static java.lang.Math.abs;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.NavigableMap;
+import java.util.NavigableSet;
+import java.util.Set;
+import java.util.SortedMap;
+import java.util.SortedSet;
 import java.util.Stack;
+import java.util.TreeSet;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import org.apache.pdfbox.cos.COSNumber;
@@ -87,7 +94,7 @@ public class MorphemStreamEngine extends PDFGraphicsStreamEngine {
 			}
 		}
 		lineStart = null;
-//		System.err.printf("lineTo %.2f %.2f\n", x, y);
+		System.err.printf("lineTo %.2f %.2f\n", x, y);
 	}
 
 	@Override
@@ -170,9 +177,9 @@ public class MorphemStreamEngine extends PDFGraphicsStreamEngine {
 		} else {
 			startNL = goingDown();
 		}
-		if (!startNL && !linestate.wordFinished()){
-			if (x - linestate.coord.x > linestate.accumulator.length()*3 + 12.){
-				refreshAccum("→");
+		if (!startNL /*&& !linestate.wordFinished()*/){
+			if (x - linestate.coord.x > linestate.len + 20.){
+				refreshAccum_("\t");
 				printTabs(x-linestate.coord.x);
 			}
 			
@@ -190,7 +197,7 @@ public class MorphemStreamEngine extends PDFGraphicsStreamEngine {
 //					linestate.finishWord(true);
 					pushState();
 				}
-				refreshAccum("\n");
+				refreshAccum_("\n");
 				ps.println();
 				ps.print("\u001b[34;47m\t\t\t\u001b[0m");
 //				ps.println("\t\t\t\t");
@@ -200,14 +207,14 @@ public class MorphemStreamEngine extends PDFGraphicsStreamEngine {
 		// case of new line continuation
 		if (linestate.wordFinished() && text.startsWith("→")){
 			if (midState()){
-				refreshAccum("");
+				refreshAccum_("");
 				popState();
 			}
 			text = "";
 		}
 
 		linestate.coord.x += span;
-		refreshAccum(mapper.getSing() + text);
+		refreshAccum(mapper.getSing() + text, string);
 		ps.print(mapper.getFormat() + text);
 
 	}
@@ -249,6 +256,14 @@ public class MorphemStreamEngine extends PDFGraphicsStreamEngine {
 		}
 	}
 
+	private void insertSep() {
+		Line l = new Line(linestate.coord, linestate.coord);
+		l.x1 += linestate.len;
+		l.x2 += linestate.len;
+		l.y2 += 5;
+		verticalSeparators.add(l);
+	}
+
 	class LineState implements Cloneable {
 		private boolean contLocker = false;
 		private boolean wordFinished = false;
@@ -261,19 +276,29 @@ public class MorphemStreamEngine extends PDFGraphicsStreamEngine {
 			return (LineState) super.clone();
 		}
 		
-		void calcLength(byte[] codes) throws IOException {
+		double calcLength(byte[] codes) throws IOException {
+			if (codes == null){
+				return 0.;
+			}
 			double res = 0.;
 	        PDTextState textState = getGraphicsState().getTextState();
 			PDFont font = textState.getFont();
 			float fontSize = textState.getFontSize();
 			float horizontalScaling = textState.getHorizontalScaling() / 100f;
 			float charSpacing = textState.getCharacterSpacing();
+			double scale = getTextMatrix().getScaleX();
 			for (byte code: codes){
 	            Vector w = font.getDisplacement(code);
-                double tx = (w.getX() * fontSize + charSpacing) * horizontalScaling;
+                double tx = scale * (w.getX() * fontSize + charSpacing) * horizontalScaling;
 				res += tx;
 			}
-			len = res;
+			return res;
+		}
+		void appendCodes(byte[] codes) throws IOException{
+			len += calcLength(codes);
+		}
+		void setCodes(byte[] codes) throws IOException{
+			len = calcLength(codes);
 		}
 
 		void resetContinue(){
@@ -302,25 +327,33 @@ public class MorphemStreamEngine extends PDFGraphicsStreamEngine {
 		
 	}
 
-	private void refreshAccum(String newVal){
+	private void refreshAccum_(String newVal) throws IOException{
+		refreshAccum(newVal, null);
+	}
+	private void refreshAccum(String newVal, byte[] codes) throws IOException{
 		if (!linestate.wordFinished()){
-			if (newVal.endsWith("→")){
-				linestate.finishWord(newVal.endsWith("→"));
+			if (newVal.endsWith("→") || newVal.equals("\t")){
+				linestate.finishWord(true);
+				if (newVal.endsWith("→")){
+					insertSep();
+				}
 			} else if (newVal.endsWith("\n")){
-				linestate.finishWord(newVal.endsWith("→"));
+				linestate.finishWord(false);
 			} else {
 				linestate.accumulator += newVal;
+				linestate.appendCodes(codes);
 			}
 		} else {
 			Word w = new Word(linestate.accumulator, linestate.previous);
 			// save state
 			textsRegions.put(linestate.coord, w);
+			if ("\t".equals(newVal)) newVal = "";
 			linestate.accumulator = newVal;
 			linestate.previous = w;
+			linestate.setCodes(codes);
 
 			// reset state
 			linestate.resetContinue();
-			linestate.len = 0;
 			Matrix trM = getTextMatrix();
 			linestate.coord = new Point(trM.getTranslateX(), trM.getTranslateY());
 		}
@@ -348,7 +381,7 @@ public class MorphemStreamEngine extends PDFGraphicsStreamEngine {
 		return linestate.coord.y < getTextMatrix().getTranslateY() && scaleX / avgFontScale.getResult() < 0.7;
 	}
 
-	private final List<Line2D> verticalSeparators = new ArrayList<>();
+	private final NavigableSet<Line> verticalSeparators = new TreeSet<>();
 	private Point lineStart;
 	LineState linestate = new LineState();
 	private static final double LEFT_BORDER = 38.0;
@@ -356,7 +389,7 @@ public class MorphemStreamEngine extends PDFGraphicsStreamEngine {
 
 	Stack<LineState> lineStates = new Stack<>();
 	
-	Map<Point,Word> textsRegions = new TreeMap<>();
+	NavigableMap<Point,Word> textsRegions = new TreeMap<>();
 	Mean avgFontScale;
 	private final static String REF_SYMBOLS = "⁰¹²³⁴⁵⁶⁷⁸⁹";
 	
@@ -381,8 +414,7 @@ public class MorphemStreamEngine extends PDFGraphicsStreamEngine {
         PDTextState textState = getGraphicsState().getTextState();
         float fontSize = textState.getFontSize();
         float horizontalScaling = textState.getHorizontalScaling() / 100f;
-        PDFont font = textState.getFont();
-        float tx = (float)(offset * 1.284 * fontSize * horizontalScaling);
+        float tx = (float)(offset * fontSize * horizontalScaling);
 		applyTextAdjustment(tx, 0);
 		if (offset > 1.0){
 			if (offset > 5.0){
@@ -400,13 +432,69 @@ public class MorphemStreamEngine extends PDFGraphicsStreamEngine {
 				shiftRight(dx);
 			}
 			if (base instanceof COSString){
-				showTextString(((COSString)base).getBytes());
+				byte codes[] = ((COSString)base).getBytes();
+				showTextString(codes);
+				float dx = (float) (linestate.calcLength(codes) / getTextMatrix().getScaleX());
+				applyTextAdjustment(dx, 0);
 			}
 		}
 	}
 
 	void saveState(){
+		NavigableSet<WGroup> groups = new TreeSet<>();
+		verticalSeparators.add(new Line(new Point(0, 0), new Point(0, 470.)));
+
+		NavigableMap<Line,Word> wordLocs = new TreeMap<>();
+		for(Map.Entry<Point,Word> entry: textsRegions.descendingMap().entrySet()){
+			wordLocs.put(entry.getKey().toLine(), entry.getValue());
+		}
+		for (Line l: verticalSeparators){
+			ps.println(l);
+
+			WGroup group = new WGroup(l, new TreeSet<>());
+			groups.add(group);
+			
+			for (Map.Entry<Point,Word> entry: textsRegions.entrySet()){
+				Point loc = entry.getKey();
+				if (!l.isCovered(loc)){
+					continue;
+				}
+				Word w = entry.getValue();
+				WGroup og = w.getGroup();
+				if (og== null || og.getGroupLine().compareTo(l) <0){
+					if (og!=null){
+						w.getGroup().deleteWord(w);
+					}
+					w.setGroup(group);
+					group.addWord(w);
+				}
+			}
+		}
+
+		if (textsRegions.isEmpty())
+		for(Map.Entry<Point,Word> entry: textsRegions.descendingMap().entrySet()){
+			Point loc = entry.getKey();
+			Line key = new Line(loc, loc);
+			Line floor = verticalSeparators.floor(key);
+			WGroup gKey = new WGroup(floor, null);
+			SortedSet<WGroup> matchingGr = groups.subSet(gKey, true, gKey, true);
+			if (matchingGr.isEmpty()){
+				matchingGr.add(new WGroup(floor, new TreeSet<>()));
+			}
+			WGroup group = matchingGr.first();
+			group.addWord(entry.getValue());
+		}
+		pageGroups.put(page, groups);
+		int overall = groups.stream().mapToInt(g -> g.words.size()).sum();
 		verticalSeparators.clear();
 		textsRegions.clear();
+	}
+	
+	Map<Integer,Set<WGroup>> pageGroups = new HashMap<>(600);
+
+	private Integer page;
+	
+	void setPage(int page){
+		this.page = page;
 	}
 }

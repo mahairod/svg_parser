@@ -10,30 +10,43 @@
 
 package net.elliptica.svg;
 
+import java.util.Arrays;
+import java.util.Set;
+
 /**
  *
  * @author Антон Астафьев <anton@astafiev.me> (Anton Astafiev)
  */
-public class Point extends java.awt.geom.Point2D.Double implements Comparable<Point> {
+public class WGroup implements Comparable<WGroup> {
+	private final Line groupLine;
+	final Set<Word> words;
 
-	public Point(double x, double y) {
-		super(x, y);
+	public WGroup(Line groupLine, Set<Word> words) {
+		this.groupLine = groupLine;
+		this.words = words;
 	}
 
 	@Override
-	public int compareTo(Point o) {
-		if (Math.abs(y-o.y)>0.05){
-			return (int)(20*(y-o.y));
-		}
-		return (int)(x-o.x);
+	public int compareTo(WGroup o) {
+		return groupLine.compareTo(o.groupLine);
+	}
+
+	void addWord(Word word){
+		words.add(word);
+	}
+
+	void deleteWord(Word word){
+		words.remove(word);
 	}
 
 	@Override
 	public String toString() {
-		return String.format("(%06.2f, %06.2f)", x, y);
+		Object[] wordArr = words.stream().map(Word::toShortString).toArray();
+		return "WG{" + "line=" + groupLine + ", " + wordArr.length + " words=" + Arrays.toString(wordArr) + '}';
 	}
 
-	Line toLine(){
-		return new Line(this, this);
+	Line getGroupLine() {
+		return groupLine;
 	}
+
 }

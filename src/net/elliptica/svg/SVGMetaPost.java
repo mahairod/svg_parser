@@ -150,6 +150,13 @@ public class SVGMetaPost {
     SVGDocumentFactory factory = new SAXSVGDocumentFactory( parser );
     return factory.createSVGDocument( uri );
   }
+  
+  public static void parsePage(PDDocument document, int pageInd, MorphemStreamEngine engine) throws IOException{
+		PDPage page = document.getPage(pageInd);
+		engine.setPage(pageInd);
+		engine.processPage(page);
+		engine.saveState();
+  }
 
   /**
    * Reads a file and parses the path elements.
@@ -161,22 +168,10 @@ public class SVGMetaPost {
 	String pdfFile = args[1];
 	PDDocument document = PDDocument.load( new File(pdfFile) );
 
-	String prefix = pdfFile.substring(0, pdfFile.length() - 4);
 	MorphemStreamEngine engine = new MorphemStreamEngine(null);
-	int curPage = 1;
-	engine.processPage(document.getPage(32));
-	for (PDPage page : document.getPages()) {
-		if (curPage > 31)
-//		engine.processPage(page);
-		engine.saveState();
-		curPage++;
-//		PDResources resources = page.getResources();
-		// extract all fonts which are part of the page resources
-//		new SVGMetaPost(null).
-//			processResources(resources, prefix, false);
+	for (int i=32; i < 584 ; i++) {
+		parsePage(document, i, engine);
 	}
-
-//	DOMImplementation domImpl = GenericDOMImplementation.getDOMImplementation();	
 
     URI uri = new File( args[0] ).toURI();
     String parser = XMLResourceDescriptor.getXMLParserClassName();
