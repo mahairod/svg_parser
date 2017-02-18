@@ -10,47 +10,64 @@
 
 package net.elliptica.svg;
 
+import java.io.Serializable;
 import java.util.Arrays;
+import java.util.HashSet;
 import java.util.Set;
+import javax.persistence.CascadeType;
+import javax.persistence.Column;
+import javax.persistence.Entity;
+import javax.persistence.Id;
+import javax.persistence.OneToMany;
+import javax.persistence.OneToOne;
+import javax.persistence.Table;
+import javax.persistence.Transient;
 import javax.xml.bind.annotation.XmlElement;
 import javax.xml.bind.annotation.XmlElementWrapper;
 import javax.xml.bind.annotation.XmlID;
 import javax.xml.bind.annotation.XmlIDREF;
-import javax.xml.bind.annotation.adapters.XmlAdapter;
-import javax.xml.bind.annotation.adapters.XmlJavaTypeAdapter;
 
 /**
  *
  * @author Антон Астафьев <anton@astafiev.me> (Anton Astafiev)
  */
-public class WGroup implements Comparable<WGroup> {
+@Entity
+@Table
+public class WGroup implements Serializable, Comparable<WGroup> {
 
+	@Id
 	@XmlID
 	@XmlElement
-	protected final String id = Long.toString(SEQUENCE++);
+	protected final int id = SEQUENCE++;
 	
+	@Transient
 	private final Line groupLine;
 
 //	@XmlJavaTypeAdapter(type=long.class, value=WSLongAdapter.class)
-	public String getId() {
+	public int getId() {
 		return id;
 	}
 
 	@XmlElement(name = "word")
 	@XmlElementWrapper
+	@OneToMany(mappedBy = "group", cascade = CascadeType.PERSIST)
 	final Set<Word> words;
 
 	@XmlIDREF
+	@OneToOne(mappedBy = "derived", cascade = CascadeType.PERSIST)
 	Word parent;
+
+	@Column
+	int page;
 
 	public WGroup() {
 		words = null;
 		groupLine = null;
 	}
 
-	public WGroup(Line groupLine, Set<Word> words) {
+	public WGroup(Line groupLine) {
 		this.groupLine = groupLine;
-		this.words = words;
+		this.words = new HashSet<>();
 	}
 
 	@Override
@@ -80,6 +97,8 @@ public class WGroup implements Comparable<WGroup> {
 		return groupLine;
 	}
 	
-	private static long SEQUENCE = 0;
+	private static int SEQUENCE = 0;
+
+	private static final long serialVersionUID = 1L;
 
 }

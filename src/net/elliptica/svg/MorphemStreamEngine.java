@@ -37,6 +37,10 @@ import java.util.Stack;
 import java.util.TreeSet;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import java.util.stream.Collectors;
+import javax.persistence.EntityManager;
+import javax.persistence.EntityManagerFactory;
+import javax.persistence.Persistence;
 import javax.xml.bind.JAXBContext;
 import javax.xml.bind.JAXBException;
 import javax.xml.bind.Marshaller;
@@ -54,6 +58,7 @@ public class MorphemStreamEngine extends PDFGraphicsStreamEngine {
 
 	public MorphemStreamEngine(PDPage page) {
 		super(page);
+/*
 		try {
 			JAXBContext jaxbc = JAXBContext.newInstance(xmlTypes);
 			marshaller = jaxbc.createMarshaller();
@@ -61,6 +66,9 @@ public class MorphemStreamEngine extends PDFGraphicsStreamEngine {
 		} catch (JAXBException ex) {
 			Logger.getLogger(MorphemStreamEngine.class.getName()).log(Level.SEVERE, null, ex);
 		}
+*/
+		EntityManagerFactory emf = Persistence.createEntityManagerFactory("SVGParserPU");
+		em = emf.createEntityManager();
 	}
 
 	@Override
@@ -224,7 +232,7 @@ public class MorphemStreamEngine extends PDFGraphicsStreamEngine {
 		}
 
 		linestate.coord.x += span;
-		refreshAccum(/*mapper.getSing() +*/ text, string);
+		refreshAccum(mapper.getSing() + text, string);
 		ps.print(mapper.getFormat() + text);
 		if (sep){
 			linestate.contin = true;
@@ -288,6 +296,7 @@ public class MorphemStreamEngine extends PDFGraphicsStreamEngine {
 		private boolean wordFinished = false;
 		private boolean contin = false;
 		private String accumulator = "";
+		private String prepared = null;
 		Line savedGroup;
 		private double len = 0;
 		private Word previous;
@@ -354,10 +363,17 @@ public class MorphemStreamEngine extends PDFGraphicsStreamEngine {
 	}
 	private void refreshAccum(String newVal, byte[] codes) throws IOException{
 		if (!linestate.wordFinished()){
-			if (newVal.endsWith("→") || newVal.equals("\t")){
+			String v = newVal.trim();
+			if (newVal.equals("\t")){
 				linestate.finishWord(true);
-				if (newVal.endsWith("→")){
-					insertSep(linestate.len);
+			} else if (v.startsWith("→")){
+				linestate.finishWord(true);
+				insertSep(linestate.len);
+				if (v.length()>1){
+					String next = v.substring(1).trim();
+					if (!"•".equals(next)){
+						linestate.prepared = v.substring(1);
+					}
 				}
 			} else if (newVal.endsWith("\n")){
 				linestate.finishWord(false);
@@ -370,7 +386,12 @@ public class MorphemStreamEngine extends PDFGraphicsStreamEngine {
 			// save state
 			textsRegions.put(linestate.coord, w);
 			if ("\t".equals(newVal)) newVal = "";
-			linestate.accumulator = newVal;
+			if (linestate.prepared != null){
+				linestate.accumulator = linestate.prepared + newVal;
+				linestate.prepared = null;
+			} else {
+				linestate.accumulator = newVal;
+			}
 			linestate.previous = w;
 			linestate.setCodes(codes);
 			if (linestate.contin){
@@ -380,6 +401,7 @@ public class MorphemStreamEngine extends PDFGraphicsStreamEngine {
 			// reset state
 			linestate.resetContinue();
 			Matrix trM = getTextMatrix();
+			if (trM==null) return;
 			linestate.coord = new Point(trM.getTranslateX(), trM.getTranslateY());
 		}
 	}
@@ -465,7 +487,9 @@ public class MorphemStreamEngine extends PDFGraphicsStreamEngine {
 		}
 	}
 
-	void saveState(){
+	void saveState() throws IOException{
+		refreshAccum_("\n");
+		refreshAccum_("");
 		NavigableSet<WGroup> groups = new TreeSet<>();
 		verticalSeparators.add(new Line(new Point(0, 0), new Point(0, 470.)));
 
@@ -476,7 +500,7 @@ public class MorphemStreamEngine extends PDFGraphicsStreamEngine {
 		for (Line l: verticalSeparators){
 //			ps.println(l);
 
-			WGroup group = new WGroup(l, new TreeSet<>());
+			WGroup group = new WGroup(l);
 			groups.add(group);
 
 			int counter = 0;
@@ -489,11 +513,7 @@ public class MorphemStreamEngine extends PDFGraphicsStreamEngine {
 				Word w = entry.getValue();
 				WGroup og = w.getGroup();
 				if (og== null || og.getGroupLine().compareTo(l) <0){
-					if (og!=null){
-						og.deleteWord(w);
-					}
 					w.setGroup(group);
-					group.addWord(w);
 				}
 			}
 		}
@@ -513,16 +533,41 @@ public class MorphemStreamEngine extends PDFGraphicsStreamEngine {
 			}
 		}
 
+/*
 		try {
 			Root r = new Root();
 			r.groups = new ArrayList<>(groups);
 			marshaller.marshal(r, new File("xml/output-" + page + ".xml"));
 		} catch (JAXBException ex) {
-			Logger.getLogger(MorphemStreamEngine.class.getName()).log(Level.SEVERE, null, ex);
+			LOG.log(Level.SEVERE, null, ex);
+		}
+*/
+
+		int overall = groups.stream().mapToInt(g -> g.words.size()).sum();
+		List<Word> freeWords = textsRegions.values().stream().filter(t -> t.getGroup()==null)
+				.collect(Collectors.toList());
+		if (!freeWords.isEmpty()){
+			LOG.info("Free words!");
+		}
+
+		{
+			em.getTransaction().begin();
+			try{
+				for (WGroup group: groups){
+					if (group.words.isEmpty()){
+						continue;
+					}
+					group.page = page;
+					em.persist(group);
+				}
+				em.getTransaction().commit();
+			} catch (Exception ex){
+				em.getTransaction().rollback();
+				LOG.log(Level.SEVERE, null, ex);
+			}
 		}
 
 		pageGroups.put(page, groups);
-		int overall = groups.stream().mapToInt(g -> g.words.size()).sum();
 		verticalSeparators.clear();
 		textsRegions.clear();
 		linestate = new LineState();
@@ -542,7 +587,10 @@ public class MorphemStreamEngine extends PDFGraphicsStreamEngine {
 	private Class[] xmlTypes = {WGroup.class, Word.class, ArrayList.class, Root.class};
 
 	private Marshaller marshaller;
-	
+	private EntityManager em;
+
+	Logger LOG = Logger.getLogger(MorphemStreamEngine.class.getName());
+
 	void setPage(int page){
 		this.page = page;
 	}

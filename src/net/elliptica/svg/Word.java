@@ -11,6 +11,16 @@
 package net.elliptica.svg;
 
 import com.sun.xml.txw2.annotation.XmlCDATA;
+import java.io.Serializable;
+import javax.persistence.CascadeType;
+import javax.persistence.Column;
+import javax.persistence.Entity;
+import javax.persistence.Id;
+import javax.persistence.JoinColumn;
+import javax.persistence.ManyToOne;
+import javax.persistence.OneToOne;
+import javax.persistence.Table;
+import javax.persistence.Transient;
 import javax.xml.bind.annotation.XmlElement;
 import javax.xml.bind.annotation.XmlID;
 import javax.xml.bind.annotation.XmlIDREF;
@@ -19,7 +29,9 @@ import javax.xml.bind.annotation.XmlIDREF;
  *
  * @author Антон Астафьев <anton@astafiev.me> (Anton Astafiev)
  */
-public class Word implements Comparable<Word> {
+@Entity
+@Table
+public class Word implements Comparable<Word>, Serializable {
 
 	public Word() {
 		this.line = null;
@@ -31,14 +43,25 @@ public class Word implements Comparable<Word> {
 		this.base = base;
 	}
 
+	@Id
+	@XmlID
+	@XmlElement
+	protected final int id = SEQUENCE++;
+	
+	@Column
 	private final String line;
+
+	@JoinColumn
+	@OneToOne
 	private WGroup derived;
 
+	@Transient
 	private final Word base;
 
+	@ManyToOne(cascade = CascadeType.PERSIST)
 	private WGroup group;
 
-	@XmlID
+//	@XmlID
 	@XmlElement
 	public String getLine() {
 		return line
@@ -77,8 +100,12 @@ public class Word implements Comparable<Word> {
 		return line.compareTo(o.line);
 	}
 
-	void setGroup(WGroup group){
-		this.group = group;
+	void setGroup(WGroup gr){
+		if (group!=null){
+			group.deleteWord(this);
+		}
+		this.group = gr;
+		group.addWord(this);
 	}
 
 	WGroup getGroup() {
@@ -92,5 +119,9 @@ public class Word implements Comparable<Word> {
 	public void setDerived(WGroup derived) {
 		this.derived = derived;
 	}
+
+	private static int SEQUENCE = 0;
+
+	private static final long serialVersionUID = 1L;
 
 }
