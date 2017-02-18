@@ -12,14 +12,41 @@ package net.elliptica.svg;
 
 import java.util.Arrays;
 import java.util.Set;
+import javax.xml.bind.annotation.XmlElement;
+import javax.xml.bind.annotation.XmlElementWrapper;
+import javax.xml.bind.annotation.XmlID;
+import javax.xml.bind.annotation.XmlIDREF;
+import javax.xml.bind.annotation.adapters.XmlAdapter;
+import javax.xml.bind.annotation.adapters.XmlJavaTypeAdapter;
 
 /**
  *
  * @author Антон Астафьев <anton@astafiev.me> (Anton Astafiev)
  */
 public class WGroup implements Comparable<WGroup> {
+
+	@XmlID
+	@XmlElement
+	protected final String id = Long.toString(SEQUENCE++);
+	
 	private final Line groupLine;
+
+//	@XmlJavaTypeAdapter(type=long.class, value=WSLongAdapter.class)
+	public String getId() {
+		return id;
+	}
+
+	@XmlElement(name = "word")
+	@XmlElementWrapper
 	final Set<Word> words;
+
+	@XmlIDREF
+	Word parent;
+
+	public WGroup() {
+		words = null;
+		groupLine = null;
+	}
 
 	public WGroup(Line groupLine, Set<Word> words) {
 		this.groupLine = groupLine;
@@ -35,6 +62,10 @@ public class WGroup implements Comparable<WGroup> {
 		words.add(word);
 	}
 
+	void setParent(Word word){
+		parent = word;
+	}
+
 	void deleteWord(Word word){
 		words.remove(word);
 	}
@@ -48,5 +79,7 @@ public class WGroup implements Comparable<WGroup> {
 	Line getGroupLine() {
 		return groupLine;
 	}
+	
+	private static long SEQUENCE = 0;
 
 }

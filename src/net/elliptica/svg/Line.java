@@ -18,6 +18,9 @@ import java.awt.geom.Line2D;
  */
 public class Line extends Line2D.Double implements Comparable<Line> {
 
+	public Line() {
+	}
+
 	public Line(Point p1, Point p2) {
 		super(p1, p2);
 		if (p1.compareTo(p2) >0){
@@ -37,7 +40,7 @@ public class Line extends Line2D.Double implements Comparable<Line> {
 
 	@Override
 	public String toString() {
-		return String.format("(%05.1f, %05.1f) - (%05.1f, %05.1f): %5.1f", y1, x1, y2, x2, y2-y1);
+		return String.format("(%05.1f, %05.1f) - (%05.1f, %05.1f):%.0f", y1, x1, y2, x2, y2-y1);
 
 	}
 

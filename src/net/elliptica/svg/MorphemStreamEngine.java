@@ -9,11 +9,10 @@
  */
 package net.elliptica.svg;
 
-import java.awt.geom.Line2D;
 import java.awt.geom.Point2D;
+import java.io.File;
 import java.io.IOException;
 import java.io.PrintStream;
-import java.util.Comparator;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.TreeMap;
@@ -30,17 +29,20 @@ import org.apache.pdfbox.pdmodel.graphics.state.PDTextState;
 import org.apache.pdfbox.util.Matrix;
 import static java.lang.Math.abs;
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.List;
 import java.util.NavigableMap;
 import java.util.NavigableSet;
 import java.util.Set;
-import java.util.SortedMap;
-import java.util.SortedSet;
 import java.util.Stack;
 import java.util.TreeSet;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import javax.xml.bind.JAXBContext;
+import javax.xml.bind.JAXBException;
+import javax.xml.bind.Marshaller;
+import javax.xml.bind.annotation.XmlElement;
+import javax.xml.bind.annotation.XmlElementWrapper;
+import javax.xml.bind.annotation.XmlRootElement;
 import org.apache.pdfbox.cos.COSNumber;
 import org.apache.pdfbox.util.Vector;
 
@@ -52,6 +54,13 @@ public class MorphemStreamEngine extends PDFGraphicsStreamEngine {
 
 	public MorphemStreamEngine(PDPage page) {
 		super(page);
+		try {
+			JAXBContext jaxbc = JAXBContext.newInstance(xmlTypes);
+			marshaller = jaxbc.createMarshaller();
+//			marshaller.setProperty("jaxb.encoding", "Unicode");
+		} catch (JAXBException ex) {
+			Logger.getLogger(MorphemStreamEngine.class.getName()).log(Level.SEVERE, null, ex);
+		}
 	}
 
 	@Override
@@ -215,7 +224,7 @@ public class MorphemStreamEngine extends PDFGraphicsStreamEngine {
 		}
 
 		linestate.coord.x += span;
-		refreshAccum(mapper.getSing() + text, string);
+		refreshAccum(/*mapper.getSing() +*/ text, string);
 		ps.print(mapper.getFormat() + text);
 		if (sep){
 			linestate.contin = true;
@@ -267,6 +276,11 @@ public class MorphemStreamEngine extends PDFGraphicsStreamEngine {
 		l.y2 += 5;
 		l.rowSym = true;
 		verticalSeparators.add(l);
+		if (linestate.contin){
+			verticalSeparators.remove(linestate.savedGroup);
+			linestate.contin = false;
+		}
+		linestate.savedGroup = l;
 	}
 
 	class LineState implements Cloneable {
@@ -274,6 +288,7 @@ public class MorphemStreamEngine extends PDFGraphicsStreamEngine {
 		private boolean wordFinished = false;
 		private boolean contin = false;
 		private String accumulator = "";
+		Line savedGroup;
 		private double len = 0;
 		private Word previous;
 		Point coord;
@@ -459,7 +474,7 @@ public class MorphemStreamEngine extends PDFGraphicsStreamEngine {
 			wordLocs.put(entry.getKey().toLine(), entry.getValue());
 		}
 		for (Line l: verticalSeparators){
-			ps.println(l);
+//			ps.println(l);
 
 			WGroup group = new WGroup(l, new TreeSet<>());
 			groups.add(group);
@@ -483,28 +498,50 @@ public class MorphemStreamEngine extends PDFGraphicsStreamEngine {
 			}
 		}
 
-		if (textsRegions.isEmpty())
-		for(Map.Entry<Point,Word> entry: textsRegions.descendingMap().entrySet()){
-			Point loc = entry.getKey();
-			Line key = new Line(loc, loc);
-			Line floor = verticalSeparators.floor(key);
-			WGroup gKey = new WGroup(floor, null);
-			SortedSet<WGroup> matchingGr = groups.subSet(gKey, true, gKey, true);
-			if (matchingGr.isEmpty()){
-				matchingGr.add(new WGroup(floor, new TreeSet<>()));
+		for (WGroup group: groups){
+			Word parent = null;
+			for (Word word: group.words){
+				if (word.getBase()!=null){
+					if (parent==null || parent.compareTo(word.getBase())<0){
+						parent = word.getBase();
+					}
+				}
 			}
-			WGroup group = matchingGr.first();
-			group.addWord(entry.getValue());
+			if (parent!=null){
+				parent.setDerived(group);
+				group.setParent(parent);
+			}
 		}
+
+		try {
+			Root r = new Root();
+			r.groups = new ArrayList<>(groups);
+			marshaller.marshal(r, new File("xml/output-" + page + ".xml"));
+		} catch (JAXBException ex) {
+			Logger.getLogger(MorphemStreamEngine.class.getName()).log(Level.SEVERE, null, ex);
+		}
+
 		pageGroups.put(page, groups);
 		int overall = groups.stream().mapToInt(g -> g.words.size()).sum();
 		verticalSeparators.clear();
 		textsRegions.clear();
+		linestate = new LineState();
+		lineStates.clear();
 	}
 	
 	Map<Integer,Set<WGroup>> pageGroups = new HashMap<>(600);
-
 	private Integer page;
+	
+	@XmlRootElement
+	static class Root {
+		@XmlElement(name = "group")
+		@XmlElementWrapper
+		List<WGroup> groups;
+	}
+
+	private Class[] xmlTypes = {WGroup.class, Word.class, ArrayList.class, Root.class};
+
+	private Marshaller marshaller;
 	
 	void setPage(int page){
 		this.page = page;

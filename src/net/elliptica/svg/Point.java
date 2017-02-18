@@ -16,6 +16,9 @@ package net.elliptica.svg;
  */
 public class Point extends java.awt.geom.Point2D.Double implements Comparable<Point> {
 
+	public Point() {
+	}
+
 	public Point(double x, double y) {
 		super(x, y);
 	}
