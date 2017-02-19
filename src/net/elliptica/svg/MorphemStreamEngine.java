@@ -382,7 +382,7 @@ public class MorphemStreamEngine extends PDFGraphicsStreamEngine {
 				linestate.appendCodes(codes);
 			}
 		} else {
-			Word w = new Word(linestate.accumulator, linestate.previous);
+			Word w = new Word(linestate.accumulator, linestate.previous, linestate.coord);
 			// save state
 			textsRegions.put(linestate.coord, w);
 			if ("\t".equals(newVal)) newVal = "";
@@ -558,7 +558,7 @@ public class MorphemStreamEngine extends PDFGraphicsStreamEngine {
 						continue;
 					}
 					group.page = page;
-					em.persist(group);
+//					em.persist(group);
 				}
 				em.getTransaction().commit();
 			} catch (Exception ex){

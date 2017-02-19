@@ -16,7 +16,6 @@ import org.apache.pdfbox.pdmodel.PDDocument;
 import org.junit.BeforeClass;
 import org.junit.Test;
 import static org.junit.Assert.*;
-import org.w3c.dom.Document;
 
 /**
  *
@@ -37,7 +36,7 @@ public class SVGMetaPostTest {
 	@Test
 	public void testParsePage() throws Exception {
 		System.out.println("parsePage");
-		int pageInd = 32;
+		int pageInd = 55;
 		SVGMetaPost.parsePage(document, pageInd, engine);
 		Set<WGroup> groups = engine.pageGroups.get(pageInd);
 		assertNotNull(groups);

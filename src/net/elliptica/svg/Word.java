@@ -36,11 +36,14 @@ public class Word implements Comparable<Word>, Serializable {
 	public Word() {
 		this.line = null;
 		this.base = null;
+		x= y= 0;
 	}
 
-	public Word(String line, Word base) {
+	public Word(String line, Word base, Point p) {
 		this.line = line;
 		this.base = base;
+		x = p.x;
+		y = p.y;
 	}
 
 	@Id
@@ -60,6 +63,9 @@ public class Word implements Comparable<Word>, Serializable {
 
 	@ManyToOne(cascade = CascadeType.PERSIST)
 	private WGroup group;
+	
+	@Column
+	private final double x,y;
 
 //	@XmlID
 	@XmlElement
