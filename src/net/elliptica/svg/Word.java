@@ -36,14 +36,15 @@ public class Word implements Comparable<Word>, Serializable {
 	public Word() {
 		this.line = null;
 		this.base = null;
-		x= y= 0;
+		x= y= len= 0;
 	}
 
-	public Word(String line, Word base, Point p) {
+	public Word(String line, Word base, Point p, double length) {
 		this.line = line;
 		this.base = base;
 		x = p.x;
 		y = p.y;
+		len = length;
 	}
 
 	@Id
@@ -70,7 +71,7 @@ public class Word implements Comparable<Word>, Serializable {
 	private Bunch group;
 	
 	@Column
-	private final double x,y;
+	private final double x,y, len;
 
 //	@XmlID
 	@XmlElement
@@ -94,11 +95,14 @@ public class Word implements Comparable<Word>, Serializable {
 	public Bunch getDerived() {
 		return derived;
 	}
-	
 
+	public double getLen() {
+		return len;
+	}
+	
 	@Override
 	public String toString() {
-		String main = "w{" + line + '}';
+		String main = "w{" + line + '}' + Integer.toString((int)x) + "/" + Integer.toString((int)y);
 		if (base==null){
 			return main;
 		}
@@ -115,12 +119,20 @@ public class Word implements Comparable<Word>, Serializable {
 		return line.compareTo(o.line);
 	}
 
+	public int compHPos(Word o) {
+		return (int)(x - o.x);
+	}
+
 	void setGroup(Bunch gr){
 		if (group!=null){
 			group.deleteWord(this);
 		}
 		this.group = gr;
 		group.addWord(this);
+	}
+	
+	private Point getPoint(){
+		return new Point(x, y);
 	}
 
 	Bunch getGroup() {

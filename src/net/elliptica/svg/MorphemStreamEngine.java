@@ -29,6 +29,7 @@ import org.apache.pdfbox.pdmodel.graphics.state.PDTextState;
 import org.apache.pdfbox.util.Matrix;
 import static java.lang.Math.abs;
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
 import java.util.NavigableMap;
 import java.util.NavigableSet;
@@ -390,7 +391,7 @@ public class MorphemStreamEngine extends PDFGraphicsStreamEngine {
 				linestate.appendCodes(codes);
 			}
 		} else {
-			Word w = new Word(linestate.accumulator, linestate.previous, linestate.coord);
+			Word w = new Word(linestate.accumulator, linestate.previous, linestate.coord, linestate.len);
 			// save state
 			textsRegions.put(linestate.coord, w);
 			if ("\t".equals(newVal)) newVal = "";
@@ -499,12 +500,8 @@ public class MorphemStreamEngine extends PDFGraphicsStreamEngine {
 		refreshAccum_("\n");
 		refreshAccum_("");
 		NavigableSet<Bunch> groups = new TreeSet<>();
-		verticalSeparators.add(new Line(new Point(0, 0), new Point(0, 470.)));
+		verticalSeparators.add(new Line(new Point(0, 0), new Point(0, 470.), true));
 
-		NavigableMap<Line,Word> wordLocs = new TreeMap<>();
-		for(Map.Entry<Point,Word> entry: textsRegions.descendingMap().entrySet()){
-			wordLocs.put(entry.getKey().toLine(), entry.getValue());
-		}
 		for (Line l: verticalSeparators){
 //			ps.println(l);
 
@@ -514,10 +511,10 @@ public class MorphemStreamEngine extends PDFGraphicsStreamEngine {
 			for (Map.Entry<Point,Word> entry: textsRegions.entrySet()){
 				Point loc = entry.getKey();
 				counter++;
-				if (!l.isCovered(loc)){
+				Word w = entry.getValue();
+				if (!l.isCovered(loc, w.getLen())){
 					continue;
 				}
-				Word w = entry.getValue();
 				Bunch og = w.getGroup();
 				if (og== null || og.getGroupLine().compareTo(l) <0){
 					w.setGroup(group);
@@ -528,27 +525,74 @@ public class MorphemStreamEngine extends PDFGraphicsStreamEngine {
 			}
 		}
 
+		Iterator<Bunch> bIt = groups.iterator();
+		while (bIt.hasNext()) {
+			Bunch bunch = bIt.next();
+			if (bunch.words.isEmpty()){
+				bIt.remove();
+			}
+			bunch.page = page;
+		}
+		
+		int regroupTryCount = 10;
+
+	do{
 		for (Bunch bunch: groups){
 			Word parent = null;
+			Word grandpa = null;
 			for (Word word: bunch.words){
 				if (word.getBase()!=null){
 					Word parentCand = word.getBase();
-					if (parent==null || 0 < parent.getGroup().compareTo(parentCand.getGroup())){
+					if (parentCand.getDerived()!=null){
+						continue;
+					}
+					if (parent==null){
 						parent = parentCand;
+					}else if (parent.getGroup().compareTo(parentCand.getGroup()) <0 ){
+						grandpa = parent;
+						parent = parentCand;
+					} else {
+						if (grandpa==null || grandpa.getGroup().compareTo(parentCand.getGroup()) <0 ){
+							grandpa = parentCand;
+						}
 					}
 				}
 			}
 			if (parent!=null){
 				parent.setDerived(bunch);
 				bunch.setParent(parent);
+
+				Bunch parBunch = parent.getGroup();
+				if (grandpa != null && !parBunch.isRoot() && parBunch.parent == null){
+					parBunch.parent = grandpa;
+				}
 			}
 		}
-
-		int overall = groups.stream().mapToInt(g -> g.words.size()).sum();
-		long freeGroups = groups.stream().filter(g -> (g.parent == null)).count();
-		if (freeGroups>1){
-			LOG.log(Level.WARNING, "Too many root groups on page " + page);
+		List<Bunch> freeBunches = groups.stream().filter(g -> g.parent == null).collect(Collectors.toList());
+		if (freeBunches.size() > 1){
+			LOG.log(Level.WARNING, "Too many root groups on page {0}", page);
+			regroupTryCount--;
+			for (Bunch bunch: freeBunches){
+				if (bunch.isRoot()){
+					continue;
+				}
+				Word w = searchRightmostWord(bunch);
+				if (w==null) continue;
+				Bunch prev = w.getDerived();
+				if (prev==null || bunch.compareTo(prev) <=0 || prev==bunch ){
+					if (prev!=null && prev!=bunch){
+						prev.setParent(null);
+					}
+					w.setDerived(bunch);
+					bunch.setParent(w);
+				}
+			}
+		} else {
+			regroupTryCount = 0;
 		}
+	} while (regroupTryCount>0);
+		
+		int overall = groups.stream().mapToInt(g -> g.words.size()).sum();
 		pageGroups.put(page, groups);
 
 //		saveXML();
@@ -559,7 +603,22 @@ public class MorphemStreamEngine extends PDFGraphicsStreamEngine {
 		linestate = new LineState();
 		lineStates.clear();
 	}
-	
+
+	private Word searchRightmostWord(Bunch bunch){
+		Line bline = bunch.getGroupLine();
+		Word word = null;
+		for (Map.Entry<Point,Word> entry: textsRegions.entrySet()){
+			Word w = entry.getValue();
+			if (w.getGroup() == bunch) continue;
+			Point loc = entry.getKey();
+			Line wline = new Line(loc, loc);
+			if (wline.compareTo(bline) >=0 || loc.y > bline.y2 || wline.x1 > bline.x1) continue;
+			if (word==null || w.compHPos(word) >0){
+				word = w;
+			}
+		}
+		return word;
+	}
 	private void saveXML(){
 		Set<Bunch> groups = pageGroups.get(page);
 		try {
@@ -579,7 +638,6 @@ public class MorphemStreamEngine extends PDFGraphicsStreamEngine {
 				if (group.words.isEmpty()){
 					continue;
 				}
-				group.page = page;
 //					em.persist(group);
 			}
 			em.getTransaction().commit();

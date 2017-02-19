@@ -61,14 +61,19 @@ public class Bunch implements Serializable, Comparable<Bunch> {
 	@Column
 	int page;
 
+	@Column
+	private final boolean root;
+
 	public Bunch() {
 		words = null;
 		groupLine = null;
+		root = false;
 	}
 
 	public Bunch(Line groupLine) {
 		this.groupLine = groupLine;
 		this.words = new HashSet<>();
+		root = groupLine.isRoot();
 	}
 
 	@Override
@@ -86,6 +91,10 @@ public class Bunch implements Serializable, Comparable<Bunch> {
 
 	void deleteWord(Word word){
 		words.remove(word);
+	}
+
+	public boolean isRoot() {
+		return root;
 	}
 
 	@Override

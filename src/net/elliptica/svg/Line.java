@@ -28,6 +28,13 @@ public class Line extends Line2D.Double implements Comparable<Line> {
 		}
 	}
 
+	public Line(Point p1, Point p2, boolean root) {
+		super(p1, p2);
+		if (p1.compareTo(p2) >0){
+			setLine(x2, y2, x1, y1);
+		}
+		this.root = root;
+	}
 	@Override
 	public Point getP1() {
 		return new Point(x1, y1);
@@ -44,11 +51,16 @@ public class Line extends Line2D.Double implements Comparable<Line> {
 
 	}
 
-	boolean isCovered(Point p){
-		return y1 -1.3 < p.y && p.y < y2 && x1 < p.x + 0.5;
+	boolean isCovered(Point p, double len){
+		return y1 -1.3 < p.y && p.y < y2 && x1 < p.x + len / 3;
+	}
+
+	public boolean isRoot() {
+		return root;
 	}
 
 	boolean rowSym;
+	private boolean root;
 
 /*
 	@Override
