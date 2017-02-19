@@ -10,7 +10,25 @@
 <project name="SVGParser" default="default" basedir=".">
     <description>Builds, tests, and runs the project SVGParser.</description>
     <import file="nbproject/build-impl.xml"/>
-    <!--
+
+	<target name="-post-compile" depends="weaving">
+	</target>
+
+	<target name="define.weaving" description="New task definition for EclipseLink static weaving"> 
+		<taskdef name="weave" classname="org.eclipse.persistence.tools.weaving.jpa.StaticWeaveAntTask" classpath="${javac.classpath}" />
+	</target>
+	<target name="weaving" description="perform weaving" depends="-do-compile,define.weaving">
+		<echo message="Weaving ${build.classes.dir} to "/>
+		<weave  source="${basedir}/${build.classes.dir}"
+				target="${basedir}/${build.dir}/woven">
+			<classpath>
+				<path path="${run.classpath}"/>
+			</classpath>
+		</weave>
+		<move file="${build.classes.dir}" tofile="${build.classes.dir}_orig"/>
+		<move file="${build.dir}/woven" tofile="${build.classes.dir}"/>
+	</target>
+	<!--
 
     There exist several targets which are by default empty and which can be 
     used for execution of your tasks. These targets are usually executed 

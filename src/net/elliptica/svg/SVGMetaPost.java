@@ -37,6 +37,10 @@ public class SVGMetaPost {
 		engine.process();
 		engine.saveState();
   }
+  
+  public static void reparseWords(MorphemStreamEngine engine){
+	  engine.reparseWords();
+  }
 
   /**
    * Reads a file and parses the path elements.

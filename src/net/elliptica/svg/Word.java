@@ -10,11 +10,11 @@
 
 package net.elliptica.svg;
 
-import com.sun.xml.txw2.annotation.XmlCDATA;
 import java.io.Serializable;
 import javax.persistence.CascadeType;
 import javax.persistence.Column;
 import javax.persistence.Entity;
+import javax.persistence.FetchType;
 import javax.persistence.Id;
 import javax.persistence.JoinColumn;
 import javax.persistence.ManyToOne;
@@ -54,15 +54,20 @@ public class Word implements Comparable<Word>, Serializable {
 	@Column
 	private final String line;
 
-	@JoinColumn
-	@OneToOne
-	private WGroup derived;
+	@Column
+	private String text;
+
+	@Transient
+//	@JoinColumn(updatable = false, nullable = false, insertable = false)
+//	@OneToOne(fetch = FetchType.LAZY)
+	private Bunch derived;
 
 	@Transient
 	private final Word base;
 
-	@ManyToOne(cascade = CascadeType.PERSIST)
-	private WGroup group;
+	@Transient
+//	@ManyToOne(cascade = CascadeType.PERSIST, fetch = FetchType.LAZY)
+	private Bunch group;
 	
 	@Column
 	private final double x,y;
@@ -81,8 +86,12 @@ public class Word implements Comparable<Word>, Serializable {
 			;
 	}
 
+	public void setText(String text) {
+		this.text = text;
+	}
+
 	@XmlIDREF
-	public WGroup getDerived() {
+	public Bunch getDerived() {
 		return derived;
 	}
 	
@@ -106,7 +115,7 @@ public class Word implements Comparable<Word>, Serializable {
 		return line.compareTo(o.line);
 	}
 
-	void setGroup(WGroup gr){
+	void setGroup(Bunch gr){
 		if (group!=null){
 			group.deleteWord(this);
 		}
@@ -114,7 +123,7 @@ public class Word implements Comparable<Word>, Serializable {
 		group.addWord(this);
 	}
 
-	WGroup getGroup() {
+	Bunch getGroup() {
 		return group;
 	}
 
@@ -122,7 +131,7 @@ public class Word implements Comparable<Word>, Serializable {
 		return base;
 	}
 
-	public void setDerived(WGroup derived) {
+	public void setDerived(Bunch derived) {
 		this.derived = derived;
 	}
 

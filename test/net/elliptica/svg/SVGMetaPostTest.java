@@ -38,7 +38,7 @@ public class SVGMetaPostTest {
 		System.out.println("parsePage");
 		int pageInd = 55;
 		SVGMetaPost.parsePage(pageInd, engine);
-		Set<WGroup> groups = engine.pageGroups.get(pageInd);
+		Set<Bunch> groups = engine.pageGroups.get(pageInd);
 		assertNotNull(groups);
 		int[] exp_sizes = {
 			11,	//glob
@@ -79,11 +79,17 @@ public class SVGMetaPostTest {
 		};
 		int[] act_sizes = groups.stream().mapToInt(wg -> wg.words.size()).toArray();
 		assertArrayEquals(exp_sizes, act_sizes);
-		for (WGroup group: groups){
+		for (Bunch group: groups){
 			assertTrue("Inconsistent group " + group.toString(), group.words.size()>1 || group.getGroupLine().rowSym);
 		}
 	}
 
 	static PDDocument document;
 	static MorphemStreamEngine engine;
+
+	@Test
+	public void testReparseWords() {
+		System.out.println("reparseWords");
+		SVGMetaPost.reparseWords(engine);
+	}
 }

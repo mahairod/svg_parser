@@ -41,6 +41,7 @@ import java.util.stream.Collectors;
 import javax.persistence.EntityManager;
 import javax.persistence.EntityManagerFactory;
 import javax.persistence.Persistence;
+import javax.persistence.criteria.CriteriaQuery;
 import javax.xml.bind.JAXBContext;
 import javax.xml.bind.JAXBException;
 import javax.xml.bind.Marshaller;
@@ -497,7 +498,7 @@ public class MorphemStreamEngine extends PDFGraphicsStreamEngine {
 	void saveState() throws IOException{
 		refreshAccum_("\n");
 		refreshAccum_("");
-		NavigableSet<WGroup> groups = new TreeSet<>();
+		NavigableSet<Bunch> groups = new TreeSet<>();
 		verticalSeparators.add(new Line(new Point(0, 0), new Point(0, 470.)));
 
 		NavigableMap<Line,Word> wordLocs = new TreeMap<>();
@@ -507,7 +508,7 @@ public class MorphemStreamEngine extends PDFGraphicsStreamEngine {
 		for (Line l: verticalSeparators){
 //			ps.println(l);
 
-			WGroup group = new WGroup(l);
+			Bunch group = new Bunch(l);
 
 			int counter = 0;
 			for (Map.Entry<Point,Word> entry: textsRegions.entrySet()){
@@ -517,7 +518,7 @@ public class MorphemStreamEngine extends PDFGraphicsStreamEngine {
 					continue;
 				}
 				Word w = entry.getValue();
-				WGroup og = w.getGroup();
+				Bunch og = w.getGroup();
 				if (og== null || og.getGroupLine().compareTo(l) <0){
 					w.setGroup(group);
 				}
@@ -527,22 +528,27 @@ public class MorphemStreamEngine extends PDFGraphicsStreamEngine {
 			}
 		}
 
-		for (WGroup group: groups){
+		for (Bunch bunch: groups){
 			Word parent = null;
-			for (Word word: group.words){
+			for (Word word: bunch.words){
 				if (word.getBase()!=null){
-					if (parent==null || parent.compareTo(word.getBase())<0){
-						parent = word.getBase();
+					Word parentCand = word.getBase();
+					if (parent==null || 0 < parent.getGroup().compareTo(parentCand.getGroup())){
+						parent = parentCand;
 					}
 				}
 			}
 			if (parent!=null){
-				parent.setDerived(group);
-				group.setParent(parent);
+				parent.setDerived(bunch);
+				bunch.setParent(parent);
 			}
 		}
 
 		int overall = groups.stream().mapToInt(g -> g.words.size()).sum();
+		long freeGroups = groups.stream().filter(g -> (g.parent == null)).count();
+		if (freeGroups>1){
+			LOG.log(Level.WARNING, "Too many root groups on page " + page);
+		}
 		pageGroups.put(page, groups);
 
 //		saveXML();
@@ -555,7 +561,7 @@ public class MorphemStreamEngine extends PDFGraphicsStreamEngine {
 	}
 	
 	private void saveXML(){
-		Set<WGroup> groups = pageGroups.get(page);
+		Set<Bunch> groups = pageGroups.get(page);
 		try {
 			Root r = new Root();
 			r.groups = new ArrayList<>(groups);
@@ -566,10 +572,10 @@ public class MorphemStreamEngine extends PDFGraphicsStreamEngine {
 	}
 
 	private void saveDB(){
-		Set<WGroup> groups = pageGroups.get(page);
+		Set<Bunch> groups = pageGroups.get(page);
 		em.getTransaction().begin();
 		try{
-			for (WGroup group: groups){
+			for (Bunch group: groups){
 				if (group.words.isEmpty()){
 					continue;
 				}
@@ -583,7 +589,7 @@ public class MorphemStreamEngine extends PDFGraphicsStreamEngine {
 		}
 	}
 
-	Map<Integer,Set<WGroup>> pageGroups = new HashMap<>(600);
+	Map<Integer,Set<Bunch>> pageGroups = new HashMap<>(600);
 	private Integer page;
 	private PDPage pageContent;
 	private final PDDocument document;
@@ -592,10 +598,10 @@ public class MorphemStreamEngine extends PDFGraphicsStreamEngine {
 	static class Root {
 		@XmlElement(name = "group")
 		@XmlElementWrapper
-		List<WGroup> groups;
+		List<Bunch> groups;
 	}
 
-	private final Class[] xmlTypes = {WGroup.class, Word.class, ArrayList.class, Root.class};
+	private final Class[] xmlTypes = {Bunch.class, Word.class, ArrayList.class, Root.class};
 
 	private Marshaller marshaller;
 	private EntityManager em;
@@ -609,5 +615,58 @@ public class MorphemStreamEngine extends PDFGraphicsStreamEngine {
 	
 	void process() throws IOException{
 		processPage(pageContent);
+	}
+	
+	void reparseWords(){
+		CriteriaQuery<Word> cq = em.getCriteriaBuilder().createQuery(Word.class);
+		cq.select(cq.from(Word.class));
+		List<Word> words = em.createQuery(cq).getResultList();
+
+		List<Word> prepared = new ArrayList<>(20);
+		
+		for (Word word: words){
+			String line = word.getLine();
+			String[] parts = line.split("\u001b[\u001c-\u001f]");
+			String text = "";
+			for (String part: parts){
+				text += part.replaceAll("´", "");
+			}
+			String modif = text
+					.replaceAll("-", "")
+					.replace("|", "")
+					.replace("/", "")
+					.replaceAll("(.+)\\(([а-я]+)\\)$", "$1$2")
+					.replace("и[jэ]", "ие")
+					.replace("и[jа]", "ия")
+					.replace("[jи]", "ьи")
+					.replaceAll("^•", "");
+			ps.print(text);
+			ps.print("\t\t");
+			ps.println(modif);
+
+			word.setText(modif);
+			prepared.add(word);
+
+			if (prepared.size()>19){
+				saveWords(prepared);
+			}
+		}
+		if (!prepared.isEmpty()){
+			saveWords(prepared);
+		}
+	}
+	
+	private void saveWords(List<Word> words){
+		em.getTransaction().begin();
+		try{
+			for (Word w: words){
+				em.persist(w);
+			}
+			em.getTransaction().commit();
+			words.clear();
+		} catch (Exception ex){
+			em.getTransaction().rollback();
+			LOG.log(Level.SEVERE, null, ex);
+		}
 	}
 }

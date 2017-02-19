@@ -17,6 +17,7 @@ import java.util.Set;
 import javax.persistence.CascadeType;
 import javax.persistence.Column;
 import javax.persistence.Entity;
+import javax.persistence.FetchType;
 import javax.persistence.Id;
 import javax.persistence.OneToMany;
 import javax.persistence.OneToOne;
@@ -33,7 +34,7 @@ import javax.xml.bind.annotation.XmlIDREF;
  */
 @Entity
 @Table
-public class WGroup implements Serializable, Comparable<WGroup> {
+public class Bunch implements Serializable, Comparable<Bunch> {
 
 	@Id
 	@XmlID
@@ -50,7 +51,7 @@ public class WGroup implements Serializable, Comparable<WGroup> {
 
 	@XmlElement(name = "word")
 	@XmlElementWrapper
-	@OneToMany(mappedBy = "group", cascade = CascadeType.PERSIST)
+	@OneToMany(mappedBy = "group", cascade = CascadeType.PERSIST, fetch = FetchType.LAZY)
 	final Set<Word> words;
 
 	@XmlIDREF
@@ -60,18 +61,18 @@ public class WGroup implements Serializable, Comparable<WGroup> {
 	@Column
 	int page;
 
-	public WGroup() {
+	public Bunch() {
 		words = null;
 		groupLine = null;
 	}
 
-	public WGroup(Line groupLine) {
+	public Bunch(Line groupLine) {
 		this.groupLine = groupLine;
 		this.words = new HashSet<>();
 	}
 
 	@Override
-	public int compareTo(WGroup o) {
+	public int compareTo(Bunch o) {
 		return groupLine.compareTo(o.groupLine);
 	}
 
