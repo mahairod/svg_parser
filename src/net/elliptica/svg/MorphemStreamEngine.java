@@ -48,6 +48,7 @@ import javax.xml.bind.annotation.XmlElement;
 import javax.xml.bind.annotation.XmlElementWrapper;
 import javax.xml.bind.annotation.XmlRootElement;
 import org.apache.pdfbox.cos.COSNumber;
+import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.util.Vector;
 
 /**
@@ -56,9 +57,14 @@ import org.apache.pdfbox.util.Vector;
  */
 public class MorphemStreamEngine extends PDFGraphicsStreamEngine {
 
-	public MorphemStreamEngine(PDPage page) {
-		super(page);
-/*
+	public MorphemStreamEngine(PDDocument document) {
+		super(null);
+		this.document = document;
+//		initJAXB();
+		initJPA();
+	}
+
+	private void initJAXB(){
 		try {
 			JAXBContext jaxbc = JAXBContext.newInstance(xmlTypes);
 			marshaller = jaxbc.createMarshaller();
@@ -66,7 +72,8 @@ public class MorphemStreamEngine extends PDFGraphicsStreamEngine {
 		} catch (JAXBException ex) {
 			Logger.getLogger(MorphemStreamEngine.class.getName()).log(Level.SEVERE, null, ex);
 		}
-*/
+	}
+	private void initJPA(){
 		EntityManagerFactory emf = Persistence.createEntityManagerFactory("SVGParserPU");
 		em = emf.createEntityManager();
 	}
@@ -501,7 +508,6 @@ public class MorphemStreamEngine extends PDFGraphicsStreamEngine {
 //			ps.println(l);
 
 			WGroup group = new WGroup(l);
-			groups.add(group);
 
 			int counter = 0;
 			for (Map.Entry<Point,Word> entry: textsRegions.entrySet()){
@@ -515,6 +521,9 @@ public class MorphemStreamEngine extends PDFGraphicsStreamEngine {
 				if (og== null || og.getGroupLine().compareTo(l) <0){
 					w.setGroup(group);
 				}
+			}
+			if (!group.words.isEmpty()){
+				groups.add(group);
 			}
 		}
 
@@ -533,7 +542,20 @@ public class MorphemStreamEngine extends PDFGraphicsStreamEngine {
 			}
 		}
 
-/*
+		int overall = groups.stream().mapToInt(g -> g.words.size()).sum();
+		pageGroups.put(page, groups);
+
+//		saveXML();
+		saveDB();
+
+		verticalSeparators.clear();
+		textsRegions.clear();
+		linestate = new LineState();
+		lineStates.clear();
+	}
+	
+	private void saveXML(){
+		Set<WGroup> groups = pageGroups.get(page);
 		try {
 			Root r = new Root();
 			r.groups = new ArrayList<>(groups);
@@ -541,41 +563,30 @@ public class MorphemStreamEngine extends PDFGraphicsStreamEngine {
 		} catch (JAXBException ex) {
 			LOG.log(Level.SEVERE, null, ex);
 		}
-*/
-
-		int overall = groups.stream().mapToInt(g -> g.words.size()).sum();
-		List<Word> freeWords = textsRegions.values().stream().filter(t -> t.getGroup()==null)
-				.collect(Collectors.toList());
-		if (!freeWords.isEmpty()){
-			LOG.info("Free words!");
-		}
-
-		{
-			em.getTransaction().begin();
-			try{
-				for (WGroup group: groups){
-					if (group.words.isEmpty()){
-						continue;
-					}
-					group.page = page;
-//					em.persist(group);
-				}
-				em.getTransaction().commit();
-			} catch (Exception ex){
-				em.getTransaction().rollback();
-				LOG.log(Level.SEVERE, null, ex);
-			}
-		}
-
-		pageGroups.put(page, groups);
-		verticalSeparators.clear();
-		textsRegions.clear();
-		linestate = new LineState();
-		lineStates.clear();
 	}
-	
+
+	private void saveDB(){
+		Set<WGroup> groups = pageGroups.get(page);
+		em.getTransaction().begin();
+		try{
+			for (WGroup group: groups){
+				if (group.words.isEmpty()){
+					continue;
+				}
+				group.page = page;
+//					em.persist(group);
+			}
+			em.getTransaction().commit();
+		} catch (Exception ex){
+			em.getTransaction().rollback();
+			LOG.log(Level.SEVERE, null, ex);
+		}
+	}
+
 	Map<Integer,Set<WGroup>> pageGroups = new HashMap<>(600);
 	private Integer page;
+	private PDPage pageContent;
+	private final PDDocument document;
 	
 	@XmlRootElement
 	static class Root {
@@ -584,14 +595,19 @@ public class MorphemStreamEngine extends PDFGraphicsStreamEngine {
 		List<WGroup> groups;
 	}
 
-	private Class[] xmlTypes = {WGroup.class, Word.class, ArrayList.class, Root.class};
+	private final Class[] xmlTypes = {WGroup.class, Word.class, ArrayList.class, Root.class};
 
 	private Marshaller marshaller;
 	private EntityManager em;
 
-	Logger LOG = Logger.getLogger(MorphemStreamEngine.class.getName());
+	static final Logger LOG = Logger.getLogger(MorphemStreamEngine.class.getName());
 
 	void setPage(int page){
 		this.page = page;
+		pageContent = document.getPage(page);
+	}
+	
+	void process() throws IOException{
+		processPage(pageContent);
 	}
 }

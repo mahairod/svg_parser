@@ -32,10 +32,9 @@ public class SVGMetaPost {
   public SVGMetaPost( String uri ) throws IOException {
   }
 
-  public static void parsePage(PDDocument document, int pageInd, MorphemStreamEngine engine) throws IOException{
-		PDPage page = document.getPage(pageInd);
+  public static void parsePage(int pageInd, MorphemStreamEngine engine) throws IOException{
 		engine.setPage(pageInd);
-		engine.processPage(page);
+		engine.process();
 		engine.saveState();
   }
 
@@ -48,10 +47,10 @@ public class SVGMetaPost {
   static void run( String args[] ) throws IOException {
 	String pdfFile = args[1];
 	PDDocument document = PDDocument.load( new File(pdfFile) );
+	MorphemStreamEngine engine = new MorphemStreamEngine(document);
 
-	MorphemStreamEngine engine = new MorphemStreamEngine(null);
 	for (int i=32; i < 584 ; i++) {
-		parsePage(document, i, engine);
+		parsePage(i, engine);
 	}
 
   }

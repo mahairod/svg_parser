@@ -30,14 +30,14 @@ public class SVGMetaPostTest {
 	public static void setUpClass() throws IOException {
 		String pdfFile = "/mnt/store/data/Texts/Словари/work/Тихонов.pdf";
 		document = PDDocument.load( new File(pdfFile) );
-		engine = new MorphemStreamEngine(null);
+		engine = new MorphemStreamEngine(document);
 	}
 
 	@Test
 	public void testParsePage() throws Exception {
 		System.out.println("parsePage");
 		int pageInd = 55;
-		SVGMetaPost.parsePage(document, pageInd, engine);
+		SVGMetaPost.parsePage(pageInd, engine);
 		Set<WGroup> groups = engine.pageGroups.get(pageInd);
 		assertNotNull(groups);
 		int[] exp_sizes = {
