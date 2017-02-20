@@ -51,7 +51,7 @@ public class Bunch implements Serializable, Comparable<Bunch> {
 
 	@XmlElement(name = "word")
 	@XmlElementWrapper
-	@OneToMany(mappedBy = "group", cascade = CascadeType.PERSIST, fetch = FetchType.LAZY)
+	@OneToMany(mappedBy = "bunch", cascade = CascadeType.PERSIST, fetch = FetchType.LAZY)
 	final Set<Word> words;
 
 	@XmlIDREF

@@ -85,5 +85,9 @@ public class Line extends Line2D.Double implements Comparable<Line> {
 		}
 		return (int)(x1 - o.x1);
 	}
+	
+	int precXComp(Line o){
+		return (int)((x1 - o.x1)/2.5);
+	}
 
 }

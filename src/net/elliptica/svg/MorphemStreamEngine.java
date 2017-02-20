@@ -120,7 +120,7 @@ public class MorphemStreamEngine extends PDFGraphicsStreamEngine {
 			}
 		}
 		lineStart = null;
-		System.err.printf("lineTo %.2f %.2f\n", x, y);
+		ps.printf("lineTo %.2f %.2f\n", x, y);
 	}
 
 	@Override
@@ -165,16 +165,18 @@ public class MorphemStreamEngine extends PDFGraphicsStreamEngine {
 	public void shadingFill(COSName shadingName) throws IOException {
 		ps.println("shadingFill " + shadingName.toString());
 	}
+	
+	private int str_counter = 0;
+	private int str_first = 0//53//73
+			;
 
 	/**
 	 * Overridden from PDFStreamEngine.
 	 */
 	@Override
 	public void showTextString(byte[] string) throws IOException {
-		PDFont font = getGraphicsState().getTextState().getFont();
-		if (font.getName().contains("PragmaticaC")) return;
+		font = getGraphicsState().getTextState().getFont();
 
-		CharMapper mapper;
 		{
 			int style = 0;
 			style |= font.getFontDescriptor().isItalic() ? 2 : 0;
@@ -187,8 +189,22 @@ public class MorphemStreamEngine extends PDFGraphicsStreamEngine {
 			int code = 0xFF & string[i];
 			chars[i] = mapper.map(code, font);
 		}
-
 		String orig = new String(chars);
+		
+//		System.err.println(str_counter + ":\t" + orig);
+
+		if (str_counter >= str_first){
+			showTextString_(orig, string);
+		}
+		str_counter++;
+	}
+
+	private CharMapper mapper;
+	private PDFont font;
+	
+	public void showTextString_(String orig, byte[] string) throws IOException {
+		if (font.getName().contains("PragmaticaC")) return;
+
 		String text = orig.trim();
 		if (text.isEmpty()){
 			return;
@@ -216,13 +232,23 @@ public class MorphemStreamEngine extends PDFGraphicsStreamEngine {
 			String spanText = orig.substring(0, orig.indexOf(text));
 			span = spanText.length() * 2.0;
 		}
-		if (startNL && !text.startsWith("→") && !isSeparatedWord(text)){
+		if (startNL && !isSeparatedWord(text)){
+			if (text.startsWith("→")){
+				Point oldPos = linestate.coord;
+				if (!linestate.wordFinished()){
+					refreshAccum_("\n");
+				}
+				if (true || oldPos.x < linestate.coord.x +2. ){
+					linestate.hyphen_start = true;
+				}
+				text = text.substring(1);
+			} else 
 			if (!linestate.contLocker || x < linestate.coord.x){
 				if (linestate.contLocker && x < linestate.coord.x){
 					//save state for next found continuation
 //					linestate.finishWord(true);
 					pushState();
-				}
+				} else
 				refreshAccum_("\n");
 				ps.println();
 				ps.print("\u001b[34;47m\t\t\t\u001b[0m");
@@ -231,13 +257,33 @@ public class MorphemStreamEngine extends PDFGraphicsStreamEngine {
 		}
 		// case of new line continuation
 		boolean sep = false;
-		if (linestate.wordFinished() && text.startsWith("→")){
+		if (linestate.wordFinished() && linestate.hyphen_start){
 			if (midState()){
 				refreshAccum_("");
 				popState();
 			}
+			if (!linestate.hyphen){
+				Word chain = linestate.previous;
+				if (chain!=null && !chain.hyphen){
+					linestate.previous = null;
+				}
+				linestate.contin = true;
+				refreshAccum_("");
+				Word last = null;
+				if (chain!=null){
+					do{
+						last = chain;
+						chain = chain.getBase();
+					} while (chain!=null && !last.hyphen);
+					chain = last;
+					do{
+						last = chain;
+						chain = chain.getBase();
+					} while (last.x > linestate.coord.x && chain!=null && chain.hyphen );
+				}
+				linestate.previous = last;
+			}
 			sep = true;
-			text = "";
 		}
 
 		linestate.coord.x += span;
@@ -249,7 +295,9 @@ public class MorphemStreamEngine extends PDFGraphicsStreamEngine {
 		}
 	}
 	
-	private PrintStream ps = System.out;
+	private PrintStream ps = 
+			DummyPrintStream.instanse("log");
+			//System.out;
 	
 	private boolean isSeparatedWord(String text){
 		double newX = getTextMatrix().getTranslateX();
@@ -293,8 +341,8 @@ public class MorphemStreamEngine extends PDFGraphicsStreamEngine {
 		l.y2 += 5;
 		l.rowSym = true;
 		verticalSeparators.add(l);
-		if (linestate.contin){
-			verticalSeparators.remove(linestate.savedGroup);
+		if (linestate.contin && linestate.savedGroup != null){
+//			verticalSeparators.remove(linestate.savedGroup);
 			linestate.contin = false;
 		}
 		linestate.savedGroup = l;
@@ -304,11 +352,13 @@ public class MorphemStreamEngine extends PDFGraphicsStreamEngine {
 		private boolean contLocker = false;
 		private boolean wordFinished = false;
 		private boolean contin = false;
-		private String accumulator = "";
+		boolean hyphen = false;
+		private boolean hyphen_start = false;
+		String accumulator = "";
 		private String prepared = null;
 		Line savedGroup;
-		private double len = 0;
-		private Word previous;
+		double len = 0;
+		Word previous;
 		Point coord;
 
 		public LineState clone() throws CloneNotSupportedException {
@@ -348,6 +398,8 @@ public class MorphemStreamEngine extends PDFGraphicsStreamEngine {
 			}
 			wordFinished = false;
 			contin = false;
+			hyphen = false;
+			hyphen_start = false;
 		}
 		void finishWord(boolean contLine){
 			wordFinished = true;
@@ -377,6 +429,7 @@ public class MorphemStreamEngine extends PDFGraphicsStreamEngine {
 				linestate.finishWord(true);
 			} else if (v.startsWith("→")){
 				linestate.finishWord(true);
+				linestate.hyphen = true;
 				insertSep(linestate.len);
 				if (v.length()>1){
 					String next = v.substring(1).trim();
@@ -389,9 +442,10 @@ public class MorphemStreamEngine extends PDFGraphicsStreamEngine {
 			} else {
 				linestate.accumulator += newVal;
 				linestate.appendCodes(codes);
+				linestate.hyphen = false;
 			}
 		} else {
-			Word w = new Word(linestate.accumulator, linestate.previous, linestate.coord, linestate.len);
+			Word w = new Word(linestate);
 			// save state
 			textsRegions.put(linestate.coord, w);
 			if ("\t".equals(newVal)) newVal = "";
@@ -458,6 +512,8 @@ public class MorphemStreamEngine extends PDFGraphicsStreamEngine {
 		linestate.resetContinue();
 		linestate.accumulator = "";
 		linestate.previous = null;
+		Matrix lineM = getTextMatrix();
+		linestate.coord = new Point(lineM.getTranslateX(), lineM.getTranslateY());
 	}
 	void popState(){
 		linestate = lineStates.pop();
@@ -516,7 +572,7 @@ public class MorphemStreamEngine extends PDFGraphicsStreamEngine {
 					continue;
 				}
 				Bunch og = w.getGroup();
-				if (og== null || og.getGroupLine().compareTo(l) <0){
+				if (og== null || (og.getGroupLine().compareTo(l) <0 && !l.rowSym || og.getGroupLine().precXComp(l) <0 ) ){
 					w.setGroup(group);
 				}
 			}
@@ -565,6 +621,7 @@ public class MorphemStreamEngine extends PDFGraphicsStreamEngine {
 				Bunch parBunch = parent.getGroup();
 				if (grandpa != null && !parBunch.isRoot() && parBunch.parent == null){
 					parBunch.parent = grandpa;
+					grandpa.setDerived(parBunch);
 				}
 			}
 		}
@@ -638,7 +695,7 @@ public class MorphemStreamEngine extends PDFGraphicsStreamEngine {
 				if (group.words.isEmpty()){
 					continue;
 				}
-//					em.persist(group);
+//				em.persist(group);
 			}
 			em.getTransaction().commit();
 		} catch (Exception ex){

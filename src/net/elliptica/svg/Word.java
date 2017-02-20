@@ -37,14 +37,17 @@ public class Word implements Comparable<Word>, Serializable {
 		this.line = null;
 		this.base = null;
 		x= y= len= 0;
+		hyphen = false;
 	}
 
-	public Word(String line, Word base, Point p, double length) {
-		this.line = line;
-		this.base = base;
-		x = p.x;
-		y = p.y;
-		len = length;
+	public Word(MorphemStreamEngine.LineState ls) {
+		this.line = ls.accumulator;
+		this.base = ls.previous;
+		x = ls.coord.x;
+		y = ls.coord.y;
+		len = ls.len;
+		hyphen = ls.hyphen;
+		
 	}
 
 	@Id
@@ -58,20 +61,21 @@ public class Word implements Comparable<Word>, Serializable {
 	@Column
 	private String text;
 
-	@Transient
-//	@JoinColumn(updatable = false, nullable = false, insertable = false)
-//	@OneToOne(fetch = FetchType.LAZY)
+//	@Transient
+	@OneToOne(fetch = FetchType.LAZY)
 	private Bunch derived;
 
 	@Transient
 	private final Word base;
 
-	@Transient
-//	@ManyToOne(cascade = CascadeType.PERSIST, fetch = FetchType.LAZY)
-	private Bunch group;
+//	@Transient
+	@ManyToOne(cascade = CascadeType.PERSIST, fetch = FetchType.LAZY)
+	private Bunch bunch;
 	
 	@Column
-	private final double x,y, len;
+	final double x,y, len;
+	
+	final boolean hyphen;
 
 //	@XmlID
 	@XmlElement
@@ -124,11 +128,11 @@ public class Word implements Comparable<Word>, Serializable {
 	}
 
 	void setGroup(Bunch gr){
-		if (group!=null){
-			group.deleteWord(this);
+		if (bunch!=null){
+			bunch.deleteWord(this);
 		}
-		this.group = gr;
-		group.addWord(this);
+		this.bunch = gr;
+		bunch.addWord(this);
 	}
 	
 	private Point getPoint(){
@@ -136,7 +140,7 @@ public class Word implements Comparable<Word>, Serializable {
 	}
 
 	Bunch getGroup() {
-		return group;
+		return bunch;
 	}
 
 	public Word getBase() {
