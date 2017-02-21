@@ -23,6 +23,14 @@ public class SVGParser {
 	 * @param args the command line arguments
 	 */
 	public static void main(String[] args) {
+		for (String arg : args) {
+			if (arg.equals("SAVEDB")){
+				MorphemStreamEngine.SAVE_DB = true;
+			}
+			if (arg.equals("SAVEXML")){
+				MorphemStreamEngine.SAVE_XML = true;
+			}
+		}
 		try {
 			SVGMetaPost.run(args);
 		} catch (IOException ex) {

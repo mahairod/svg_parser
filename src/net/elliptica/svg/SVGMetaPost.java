@@ -13,10 +13,7 @@ package net.elliptica.svg;
 import java.io.File;
 import java.io.IOException;
 
-import java.net.URI;
-
 import org.apache.pdfbox.pdmodel.PDDocument;
-import org.apache.pdfbox.pdmodel.PDPage;
 
 /**
  * Responsible for converting all SVG path elements into MetaPost curves.
@@ -49,7 +46,7 @@ public class SVGMetaPost {
    * @throws IOException Error reading the SVG file.
    */
   static void run( String args[] ) throws IOException {
-	String pdfFile = args[1];
+	String pdfFile = args[0];
 	PDDocument document = PDDocument.load( new File(pdfFile) );
 	MorphemStreamEngine engine = new MorphemStreamEngine(document);
 

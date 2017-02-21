@@ -36,7 +36,7 @@ public class SVGMetaPostTest {
 	@Test
 	public void testParsePage() throws Exception {
 		System.out.println("parsePage");
-		int pageInd = 93;
+		int pageInd = 34;
 		SVGMetaPost.parsePage(pageInd, engine);
 		Set<Bunch> groups = engine.pageGroups.get(pageInd);
 		assertNotNull(groups);

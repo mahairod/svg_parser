@@ -16,7 +16,6 @@ import javax.persistence.Column;
 import javax.persistence.Entity;
 import javax.persistence.FetchType;
 import javax.persistence.Id;
-import javax.persistence.JoinColumn;
 import javax.persistence.ManyToOne;
 import javax.persistence.OneToOne;
 import javax.persistence.Table;
@@ -147,8 +146,10 @@ public class Word implements Comparable<Word>, Serializable {
 		return base;
 	}
 
-	public void setDerived(Bunch derived) {
+	public Bunch setDerived(Bunch derived) {
+		Bunch old = this.derived;
 		this.derived = derived;
+		return old;
 	}
 
 	private static int SEQUENCE = 0;

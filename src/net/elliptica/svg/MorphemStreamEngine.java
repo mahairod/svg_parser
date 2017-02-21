@@ -62,8 +62,12 @@ public class MorphemStreamEngine extends PDFGraphicsStreamEngine {
 	public MorphemStreamEngine(PDDocument document) {
 		super(null);
 		this.document = document;
-//		initJAXB();
-		initJPA();
+		if (SAVE_XML){
+			initJAXB();
+		}
+		if (SAVE_DB){
+			initJPA();
+		}
 	}
 
 	private void initJAXB(){
@@ -76,7 +80,7 @@ public class MorphemStreamEngine extends PDFGraphicsStreamEngine {
 		}
 	}
 	private void initJPA(){
-		EntityManagerFactory emf = Persistence.createEntityManagerFactory("SVGParserPU");
+		EntityManagerFactory emf = Persistence.createEntityManagerFactory( LITE_DB ? "SVGParserPU-Lite" : "SVGParserPU");
 		em = emf.createEntityManager();
 	}
 
@@ -191,7 +195,7 @@ public class MorphemStreamEngine extends PDFGraphicsStreamEngine {
 		}
 		String orig = new String(chars);
 		
-//		System.err.println(str_counter + ":\t" + orig);
+		System.err.println(str_counter + ":\t«" + orig + '»');
 
 		if (str_counter >= str_first){
 			showTextString_(orig, string);
@@ -220,7 +224,7 @@ public class MorphemStreamEngine extends PDFGraphicsStreamEngine {
 			startNL = goingDown();
 		}
 		if (!startNL /*&& !linestate.wordFinished()*/){
-			if (x - linestate.coord.x > linestate.len + 20.){
+			if (x - linestate.coord.x > linestate.len + 4.){
 				refreshAccum_("\t");
 				printTabs(x-linestate.coord.x);
 			}
@@ -375,10 +379,12 @@ public class MorphemStreamEngine extends PDFGraphicsStreamEngine {
 			float fontSize = textState.getFontSize();
 			float horizontalScaling = textState.getHorizontalScaling() / 100f;
 			float charSpacing = textState.getCharacterSpacing();
+			float wordSpacing = font.getWidth(32) * font.getFontMatrix().getScaleX();
 			double scale = getTextMatrix().getScaleX();
 			for (byte code: codes){
 	            Vector w = font.getDisplacement(code);
-                double tx = scale * (w.getX() * fontSize + charSpacing) * horizontalScaling;
+				float wsp = (code == 32 ) ? wordSpacing : 0.0f;
+                double tx = scale * (w.getX() * fontSize + charSpacing + wsp) * horizontalScaling;
 				res += tx;
 			}
 			return res;
@@ -551,6 +557,10 @@ public class MorphemStreamEngine extends PDFGraphicsStreamEngine {
 			}
 		}
 	}
+	
+	static boolean SAVE_DB = false;
+	static boolean SAVE_XML = false;
+	static boolean LITE_DB = false;
 
 	void saveState() throws IOException{
 		refreshAccum_("\n");
@@ -615,13 +625,11 @@ public class MorphemStreamEngine extends PDFGraphicsStreamEngine {
 				}
 			}
 			if (parent!=null){
-				parent.setDerived(bunch);
-				bunch.setParent(parent);
+				relinkInher(parent, bunch);
 
 				Bunch parBunch = parent.getGroup();
 				if (grandpa != null && !parBunch.isRoot() && parBunch.parent == null){
-					parBunch.parent = grandpa;
-					grandpa.setDerived(parBunch);
+					relinkInher(grandpa, parBunch);
 				}
 			}
 		}
@@ -637,11 +645,7 @@ public class MorphemStreamEngine extends PDFGraphicsStreamEngine {
 				if (w==null) continue;
 				Bunch prev = w.getDerived();
 				if (prev==null || bunch.compareTo(prev) <=0 || prev==bunch ){
-					if (prev!=null && prev!=bunch){
-						prev.setParent(null);
-					}
-					w.setDerived(bunch);
-					bunch.setParent(w);
+					relinkInher(w, prev);
 				}
 			}
 		} else {
@@ -652,13 +656,34 @@ public class MorphemStreamEngine extends PDFGraphicsStreamEngine {
 		int overall = groups.stream().mapToInt(g -> g.words.size()).sum();
 		pageGroups.put(page, groups);
 
-//		saveXML();
-		saveDB();
+		if (SAVE_XML){
+			saveXML();
+		}
+		if (SAVE_DB){
+			saveDB();
+		}
 
 		verticalSeparators.clear();
 		textsRegions.clear();
 		linestate = new LineState();
 		lineStates.clear();
+	}
+	
+	private static void relinkInher(Word parent, Bunch der){
+		Bunch ob = parent.setDerived(der);
+		if (ob != der && ob != null){
+			Word p = ob.setParent(null);
+			if (p!= null){
+				p.setDerived(null);
+			}
+		}
+		if (der!=null){
+			Word p = der.setParent(parent);
+			if (p!= null){
+				p.setDerived(null);
+			}
+			
+		}
 	}
 
 	private Word searchRightmostWord(Bunch bunch){
@@ -695,7 +720,7 @@ public class MorphemStreamEngine extends PDFGraphicsStreamEngine {
 				if (group.words.isEmpty()){
 					continue;
 				}
-//				em.persist(group);
+				em.persist(group);
 			}
 			em.getTransaction().commit();
 		} catch (Exception ex){

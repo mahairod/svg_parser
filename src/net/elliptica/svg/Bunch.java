@@ -85,8 +85,10 @@ public class Bunch implements Serializable, Comparable<Bunch> {
 		words.add(word);
 	}
 
-	void setParent(Word word){
+	Word setParent(Word word){
+		Word w = this.parent;
 		parent = word;
+		return w;
 	}
 
 	void deleteWord(Word word){
