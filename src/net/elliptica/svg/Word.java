@@ -152,7 +152,7 @@ public class Word implements Comparable<Word>, Serializable {
 		return old;
 	}
 
-	private static int SEQUENCE = 0;
+	static int SEQUENCE = 0;
 
 	private static final long serialVersionUID = 1L;
 

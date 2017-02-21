@@ -30,13 +30,16 @@ public class SVGMetaPostTest {
 	public static void setUpClass() throws IOException {
 		String pdfFile = "/mnt/store/data/Texts/Словари/work/Тихонов.pdf";
 		document = PDDocument.load( new File(pdfFile) );
+		MorphemStreamEngine.PRINT_RESULT = true;
 		engine = new MorphemStreamEngine(document);
 	}
 
 	@Test
 	public void testParsePage() throws Exception {
 		System.out.println("parsePage");
-		int pageInd = 34;
+		int pageInd = 46;
+		MorphemStreamEngine.str_first = 0;
+		MorphemStreamEngine.PRINT_INPUT = true;
 		SVGMetaPost.parsePage(pageInd, engine);
 		Set<Bunch> groups = engine.pageGroups.get(pageInd);
 		assertNotNull(groups);
@@ -78,6 +81,7 @@ public class SVGMetaPostTest {
 			1,	// автодорожный /32
 		};
 		int[] act_sizes = groups.stream().mapToInt(wg -> wg.words.size()).toArray();
+
 		assertArrayEquals(exp_sizes, act_sizes);
 		for (Bunch group: groups){
 			assertTrue("Inconsistent group " + group.toString(), group.words.size()>1 || group.getGroupLine().rowSym);

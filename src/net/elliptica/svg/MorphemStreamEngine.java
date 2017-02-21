@@ -171,8 +171,9 @@ public class MorphemStreamEngine extends PDFGraphicsStreamEngine {
 	}
 	
 	private int str_counter = 0;
-	private int str_first = 0//53//73
-			;
+	static int str_first = 0;
+	static boolean PRINT_RESULT = false;
+	static boolean PRINT_INPUT = false;
 
 	/**
 	 * Overridden from PDFStreamEngine.
@@ -195,7 +196,8 @@ public class MorphemStreamEngine extends PDFGraphicsStreamEngine {
 		}
 		String orig = new String(chars);
 		
-		System.err.println(str_counter + ":\t«" + orig + '»');
+		if (PRINT_INPUT)
+			System.err.println(str_counter + ":\t" + String.format("%05.1f", getTextMatrix().getTranslateX()) + "\t«" + orig + '»');
 
 		if (str_counter >= str_first){
 			showTextString_(orig, string);
@@ -211,6 +213,7 @@ public class MorphemStreamEngine extends PDFGraphicsStreamEngine {
 
 		String text = orig.trim();
 		if (text.isEmpty()){
+			linestate.appendCodes(string);
 			return;
 		}
 
@@ -255,6 +258,7 @@ public class MorphemStreamEngine extends PDFGraphicsStreamEngine {
 				} else
 				refreshAccum_("\n");
 				ps.println();
+				ps.printf("%03d", Word.SEQUENCE);
 				ps.print("\u001b[34;47m\t\t\t\u001b[0m");
 				printTabs(x);
 			}
@@ -286,7 +290,10 @@ public class MorphemStreamEngine extends PDFGraphicsStreamEngine {
 					} while (last.x > linestate.coord.x && chain!=null && chain.hyphen );
 				}
 				linestate.previous = last;
+			} else {
+//				linestate.contin = true;
 			}
+			// перенос на другую строку
 			sep = true;
 		}
 
@@ -294,14 +301,11 @@ public class MorphemStreamEngine extends PDFGraphicsStreamEngine {
 		refreshAccum(mapper.getSing() + text, string);
 		ps.print(mapper.getFormat() + text);
 		if (sep){
+			insertSep(0);
 			linestate.contin = true;
 			sep = false;
 		}
 	}
-	
-	private PrintStream ps = 
-			DummyPrintStream.instanse("log");
-			//System.out;
 	
 	private boolean isSeparatedWord(String text){
 		double newX = getTextMatrix().getTranslateX();
@@ -381,7 +385,8 @@ public class MorphemStreamEngine extends PDFGraphicsStreamEngine {
 			float charSpacing = textState.getCharacterSpacing();
 			float wordSpacing = font.getWidth(32) * font.getFontMatrix().getScaleX();
 			double scale = getTextMatrix().getScaleX();
-			for (byte code: codes){
+			for (byte code_: codes){
+				int code = code_ & 0xFF;
 	            Vector w = font.getDisplacement(code);
 				float wsp = (code == 32 ) ? wordSpacing : 0.0f;
                 double tx = scale * (w.getX() * fontSize + charSpacing + wsp) * horizontalScaling;
@@ -447,9 +452,9 @@ public class MorphemStreamEngine extends PDFGraphicsStreamEngine {
 				linestate.finishWord(false);
 			} else {
 				linestate.accumulator += newVal;
-				linestate.appendCodes(codes);
 				linestate.hyphen = false;
 			}
+			linestate.appendCodes(codes);
 		} else {
 			Word w = new Word(linestate);
 			// save state
@@ -508,6 +513,10 @@ public class MorphemStreamEngine extends PDFGraphicsStreamEngine {
 	NavigableMap<Point,Word> textsRegions = new TreeMap<>();
 	Mean avgFontScale;
 	private final static String REF_SYMBOLS = "⁰¹²³⁴⁵⁶⁷⁸⁹";
+	
+	private final PrintStream ps = PRINT_RESULT ? 
+			System.out :
+			DummyPrintStream.instanse("log");
 	
 	void pushState(){
 		try {
@@ -635,7 +644,7 @@ public class MorphemStreamEngine extends PDFGraphicsStreamEngine {
 		}
 		List<Bunch> freeBunches = groups.stream().filter(g -> g.parent == null).collect(Collectors.toList());
 		if (freeBunches.size() > 1){
-			LOG.log(Level.WARNING, "Too many root groups on page {0}", page);
+			System.out.println("Too many root groups on page " + page);
 			regroupTryCount--;
 			for (Bunch bunch: freeBunches){
 				if (bunch.isRoot()){
@@ -662,12 +671,20 @@ public class MorphemStreamEngine extends PDFGraphicsStreamEngine {
 		if (SAVE_DB){
 			saveDB();
 		}
+		
+		long selfPointersCnt = textsRegions.values().stream().filter(w -> w.getGroup() == w.getDerived()).count();
+		if (selfPointersCnt>0){
+			System.err.println(selfPointersCnt + " of total " + totalSelves +" self pointing groups on page " + page);
+			totalSelves += selfPointersCnt;
+		}
 
 		verticalSeparators.clear();
 		textsRegions.clear();
 		linestate = new LineState();
 		lineStates.clear();
 	}
+	
+	static long totalSelves = 0;
 	
 	private static void relinkInher(Word parent, Bunch der){
 		Bunch ob = parent.setDerived(der);
