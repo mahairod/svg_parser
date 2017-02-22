@@ -58,8 +58,22 @@ public class Line extends Line2D.Double implements Comparable<Line> {
 	public boolean isRoot() {
 		return root;
 	}
+	
+	boolean isHyphenSym(){
+		return rowSym && !contSym;
+	}
 
-	boolean rowSym;
+	public boolean isRowSym() {
+		return rowSym;
+	}
+	
+	void setRowFlag(boolean start){
+		rowSym = true;
+		contSym = start;
+	}
+
+	private boolean rowSym;
+	private boolean contSym;
 	private boolean root;
 
 /*

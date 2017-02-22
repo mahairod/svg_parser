@@ -37,7 +37,7 @@ public class SVGMetaPostTest {
 	@Test
 	public void testParsePage() throws Exception {
 		System.out.println("parsePage");
-		int pageInd = 46;
+		int pageInd = 384;
 		MorphemStreamEngine.str_first = 0;
 		MorphemStreamEngine.PRINT_INPUT = true;
 		SVGMetaPost.parsePage(pageInd, engine);
@@ -84,7 +84,7 @@ public class SVGMetaPostTest {
 
 		assertArrayEquals(exp_sizes, act_sizes);
 		for (Bunch group: groups){
-			assertTrue("Inconsistent group " + group.toString(), group.words.size()>1 || group.getGroupLine().rowSym);
+			assertTrue("Inconsistent group " + group.toString(), group.words.size()>1 || group.getGroupLine().isRowSym());
 		}
 	}
 
