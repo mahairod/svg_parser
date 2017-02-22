@@ -225,7 +225,7 @@ public class MorphemStreamEngine extends PDFGraphicsStreamEngine {
 		boolean startNL = false;
 		boolean tabul = false;
 		if (isReference(text)){
-			int refNum = Integer.parseInt(text);
+			int refNum = "l".equals(text) ? 1 : Integer.parseInt(text);
 			text = REF_SYMBOLS.substring(refNum, refNum+1);
 		} else {
 			startNL = goingDown();
@@ -512,6 +512,7 @@ public class MorphemStreamEngine extends PDFGraphicsStreamEngine {
 			return false;
 		}
 		if (text.length()>1) return false;
+		if (!"l".equals(text))
 		try{
 			Integer.parseInt(text);
 		} catch (NumberFormatException ex){
