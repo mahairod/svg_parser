@@ -479,12 +479,7 @@ public class MorphemStreamEngine extends PDFGraphicsStreamEngine {
 			// save state
 			textsRegions.put(linestate.coord, w);
 			if ("\t".equals(newVal)) newVal = "";
-			if (linestate.prepared != null){
-				linestate.accumulator = linestate.prepared + newVal;
-				linestate.prepared = null;
-			} else {
-				linestate.accumulator = newVal;
-			}
+			linestate.accumulator = newVal;
 			linestate.previous = w;
 			linestate.setCodes(codes);
 			if (linestate.contin){
@@ -513,11 +508,11 @@ public class MorphemStreamEngine extends PDFGraphicsStreamEngine {
 		}
 		if (text.length()>1) return false;
 		if (!"l".equals(text))
-		try{
-			Integer.parseInt(text);
-		} catch (NumberFormatException ex){
-			return false;
-		}
+			try{
+				Integer.parseInt(text);
+			} catch (NumberFormatException ex){
+				return false;
+			}
 		double scaleX = getTextMatrix().getScalingFactorX();
 		return linestate.coord.y < getTextMatrix().getTranslateY() && scaleX / avgFontScale.getResult() < 0.7;
 	}

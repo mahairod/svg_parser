@@ -64,16 +64,24 @@ public class Bunch implements Serializable, Comparable<Bunch> {
 	@Column
 	private final boolean root;
 
+	@Column
+	private final double x, y, height, width;
+
 	public Bunch() {
 		words = null;
 		groupLine = null;
 		root = false;
+		x= y= height= width= 0;
 	}
 
 	public Bunch(Line groupLine) {
 		this.groupLine = groupLine;
 		this.words = new HashSet<>();
 		root = groupLine.isRoot();
+		x = groupLine.x1;
+		y = groupLine.y1;
+		width = 0;
+		height = groupLine.y2 - groupLine.y1;
 	}
 
 	@Override
