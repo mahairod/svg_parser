@@ -17,6 +17,7 @@ import java.util.NavigableSet;
 import javax.persistence.criteria.CriteriaBuilder;
 import javax.persistence.criteria.Expression;
 import javax.persistence.criteria.Predicate;
+import javax.persistence.criteria.Root;
 import javax.persistence.criteria.SetJoin;
 import static net.elliptica.svg.LineProcessor.Format.*;
 
@@ -220,7 +221,7 @@ public class LineProcessor {
 
 		return cb.and(deprec, singlePar);
 	}
-	static Predicate noteAlternPred(CriteriaBuilder cb, SetJoin<Bunch,Word> word){
+	static Predicate noteAlternPred(CriteriaBuilder cb, Root<Word> word){
 		Predicate deprec = cb.isNull(word.get(Word_.deprecated));
 
 		Expression<String> linePath = word.get(Word_.line);

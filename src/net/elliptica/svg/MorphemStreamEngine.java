@@ -67,7 +67,7 @@ import org.apache.pdfbox.util.Vector;
  *
  * @author Антон Астафьев <anton@astafiev.me> (Anton Astafiev)
  */
-public class MorphemStreamEngine extends PDFGraphicsStreamEngine {
+public class MorphemStreamEngine extends PDFGraphicsStreamEngine implements DataProcessor {
 
 	public MorphemStreamEngine(PDDocument document) {
 		super(null);
@@ -528,14 +528,14 @@ public class MorphemStreamEngine extends PDFGraphicsStreamEngine {
 
 	private final NavigableSet<Line> verticalSeparators = new TreeSet<>();
 	private Point lineStart;
-	LineState linestate = new LineState();
+	private LineState linestate = new LineState();
 	private static final double LEFT_BORDER = 38.0;
 	private static final double RIGHT_BORDER = 301.0;
 
-	Stack<LineState> lineStates = new Stack<>();
+	private Stack<LineState> lineStates = new Stack<>();
 	
 	NavigableMap<Point,Word> textsRegions = new TreeMap<>();
-	Mean avgFontScale;
+	private Mean avgFontScale;
 	private final static String REF_SYMBOLS = "⁰¹²³⁴⁵⁶⁷⁸⁹";
 	
 	private final PrintStream ps = PRINT_RESULT ? 
@@ -802,19 +802,37 @@ public class MorphemStreamEngine extends PDFGraphicsStreamEngine {
 	void process() throws IOException{
 		processPage(pageContent);
 	}
-	void findComments(){
+
+	@Override
+	public void findAlters(){
+		CriteriaBuilder cb = em.getCriteriaBuilder();
+		CriteriaQuery<Integer> cq = cb.createQuery(Integer.class);
+		Root<Word> word = cq.from(Word.class);
+		cq.select(word.get(Word_.id)).where(LineProcessor.noteAlternPred(cb, word));
+		
+		List<Integer> wordIds = em.createQuery(cq).getResultList();
+
+	}
+
+	private boolean findAltersInWord(int page){
+		boolean m = false;
+		return m;
+	}
+
+	@Override
+	public void findComments(){
 		CriteriaBuilder cb = em.getCriteriaBuilder();
 		CriteriaQuery<Integer> cq = cb.createQuery(Integer.class);
 		Root<Bunch> broot = cq.from(Bunch.class);
 
 		SetJoin<Bunch,Word> word = broot.join(Bunch_.words);
 
-		cq.select(word.getParent().get(Bunch_.page)).where(LineProcessor.noteAlternPred(cb, word));
+		cq.select(broot.get(Bunch_.page)).where(LineProcessor.excludingParan(cb, word));
 		
 		List<Integer> pagesIds = em.createQuery(cq).getResultList();
 
-		for (int page: pagesIds){
-			boolean m = findCommentsOnPage(page);
+		for (int pageId: pagesIds){
+			boolean m = findCommentsOnPage(pageId);
 			if (m){
 //				ps.println("On page " + page + " ========================= ");
 			}
@@ -848,9 +866,10 @@ public class MorphemStreamEngine extends PDFGraphicsStreamEngine {
 		return m;
 	}
 
-	Comparator<Word> bunchSorter = (Word wl, Word wr) -> (int) ((wr.y - wl.y) * 100);
+	private Comparator<Word> bunchSorter = (Word wl, Word wr) -> (int) ((wr.y - wl.y) * 100);
 	
-	void reparseWords(){
+	@Override
+	public void reparseWords(){
 		CriteriaQuery<Word> cq = em.getCriteriaBuilder().createQuery(Word.class);
 		cq.select(cq.from(Word.class));
 		List<Word> words = em.createQuery(cq).getResultList();

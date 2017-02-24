@@ -35,14 +35,6 @@ public class SVGMetaPost {
 		engine.saveState();
   }
   
-  public static void reparseWords(MorphemStreamEngine engine){
-	  engine.reparseWords();
-  }
-
-  public static void findComments(MorphemStreamEngine engine){
-	  engine.findComments();
-  }
-
   /**
    * Reads a file and parses the path elements.
    * 

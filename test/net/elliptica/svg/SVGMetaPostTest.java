@@ -93,15 +93,4 @@ public class SVGMetaPostTest {
 	static PDDocument document;
 	static MorphemStreamEngine engine;
 
-	@Test
-	public void testReparseWords() {
-		System.out.println("reparseWords");
-		SVGMetaPost.reparseWords(engine);
-	}
-
-	@Test
-	public void testFindComments() {
-		System.out.println("findComments");
-		SVGMetaPost.findComments(engine);
-	}
 }
