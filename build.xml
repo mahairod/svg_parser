@@ -11,7 +11,7 @@
     <description>Builds, tests, and runs the project SVGParser.</description>
     <import file="nbproject/build-impl.xml"/>
 
-	<target name="-post-compile" depends="weaving">
+	<target name="-post-compile" depends="">
 	</target>
 
 	<target name="define.weaving" description="New task definition for EclipseLink static weaving"> 

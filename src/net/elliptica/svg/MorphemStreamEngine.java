@@ -30,6 +30,8 @@ import org.apache.pdfbox.util.Matrix;
 import static java.lang.Math.abs;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
+import java.util.Comparator;
 import java.util.Iterator;
 import java.util.List;
 import java.util.NavigableMap;
@@ -43,7 +45,14 @@ import java.util.stream.Collectors;
 import javax.persistence.EntityManager;
 import javax.persistence.EntityManagerFactory;
 import javax.persistence.Persistence;
+import javax.persistence.criteria.CriteriaBuilder;
 import javax.persistence.criteria.CriteriaQuery;
+import javax.persistence.criteria.Expression;
+import javax.persistence.criteria.Join;
+import javax.persistence.criteria.Path;
+import javax.persistence.criteria.Predicate;
+import javax.persistence.criteria.Root;
+import javax.persistence.criteria.SetJoin;
 import javax.xml.bind.JAXBContext;
 import javax.xml.bind.JAXBException;
 import javax.xml.bind.Marshaller;
@@ -66,7 +75,7 @@ public class MorphemStreamEngine extends PDFGraphicsStreamEngine {
 		if (SAVE_XML){
 			initJAXB();
 		}
-		if (SAVE_DB){
+		if (SAVE_DB || LOAD_DB){
 			initJPA();
 		}
 	}
@@ -211,7 +220,7 @@ public class MorphemStreamEngine extends PDFGraphicsStreamEngine {
 	private CharMapper mapper;
 	private PDFont font;
 	
-	public void showTextString_(String orig, byte[] string) throws IOException {
+	void showTextString_(String orig, byte[] string) throws IOException {
 		if (font.getName().contains("PragmaticaC")) return;
 
 		String text = orig.trim();
@@ -261,7 +270,7 @@ public class MorphemStreamEngine extends PDFGraphicsStreamEngine {
 //					linestate.finishWord(true);
 					pushState();
 				} else
-				refreshAccum_("\n");
+					refreshAccum_("\n");
 				ps.println();
 				ps.printf("%03d", Word.SEQUENCE);
 				ps.print("\u001b[34;47m\t\t\t\u001b[0m");
@@ -340,7 +349,7 @@ public class MorphemStreamEngine extends PDFGraphicsStreamEngine {
 			printCoord(curCoord);
 			res = false;
 		} else {
-			res = abs(curCoord.y - linestate.coord.y) > 0.05;
+			res = abs(curCoord.y - linestate.coord.y) > 0.25;
 		}
 		if (res) printCoord(curCoord);
 		return res;
@@ -584,6 +593,7 @@ public class MorphemStreamEngine extends PDFGraphicsStreamEngine {
 	}
 	
 	static boolean SAVE_DB = false;
+	static boolean LOAD_DB = false;
 	static boolean SAVE_XML = false;
 	static boolean LITE_DB = false;
 
@@ -740,7 +750,7 @@ public class MorphemStreamEngine extends PDFGraphicsStreamEngine {
 	private void saveXML(){
 		Set<Bunch> groups = pageGroups.get(page);
 		try {
-			Root r = new Root();
+			GrRoot r = new GrRoot();
 			r.groups = new ArrayList<>(groups);
 			marshaller.marshal(r, new File("xml/output-" + page + ".xml"));
 		} catch (JAXBException ex) {
@@ -771,13 +781,13 @@ public class MorphemStreamEngine extends PDFGraphicsStreamEngine {
 	private final PDDocument document;
 	
 	@XmlRootElement
-	static class Root {
+	static class GrRoot {
 		@XmlElement(name = "group")
 		@XmlElementWrapper
 		List<Bunch> groups;
 	}
 
-	private final Class[] xmlTypes = {Bunch.class, Word.class, ArrayList.class, Root.class};
+	private final Class[] xmlTypes = {Bunch.class, Word.class, ArrayList.class, GrRoot.class};
 
 	private Marshaller marshaller;
 	private EntityManager em;
@@ -792,6 +802,53 @@ public class MorphemStreamEngine extends PDFGraphicsStreamEngine {
 	void process() throws IOException{
 		processPage(pageContent);
 	}
+	void findComments(){
+		CriteriaBuilder cb = em.getCriteriaBuilder();
+		CriteriaQuery<Integer> cq = cb.createQuery(Integer.class);
+		Root<Bunch> broot = cq.from(Bunch.class);
+
+		SetJoin<Bunch,Word> word = broot.join(Bunch_.words);
+
+		cq.select(word.getParent().get(Bunch_.page)).where(LineProcessor.noteAlternPred(cb, word));
+		
+		List<Integer> pagesIds = em.createQuery(cq).getResultList();
+
+		for (int page: pagesIds){
+			boolean m = findCommentsOnPage(page);
+			if (m){
+//				ps.println("On page " + page + " ========================= ");
+			}
+		}
+	}
+
+	boolean findCommentsOnPage(int page){
+		CriteriaBuilder cb = em.getCriteriaBuilder();
+		CriteriaQuery<Bunch> cq = cb.createQuery(Bunch.class);
+		Path<Bunch> root = cq.from(Bunch.class);
+		cq.select(root).where(cb.equal(root.get(Bunch_.page), page));
+		List<Bunch> bunches = em.createQuery(cq).getResultList();
+		
+		LineProcessor lp = new LineProcessor();
+		boolean m = false;
+		try{
+			for (Bunch bunch: bunches){
+				if (bunch.words.isEmpty()) continue;
+				NavigableSet<Word> words = new TreeSet<>(bunchSorter);
+				words.addAll(bunch.words);
+				boolean res = lp.process(words);
+				if (res){
+					saveWords(words);
+				}
+				m = m || res;
+			}
+		} catch (LineProcessor.MergeError error){
+			lp.reportError("Page " + page + ": " + error.getMessage());
+			m = true;
+		}
+		return m;
+	}
+
+	Comparator<Word> bunchSorter = (Word wl, Word wr) -> (int) ((wr.y - wl.y) * 100);
 	
 	void reparseWords(){
 		CriteriaQuery<Word> cq = em.getCriteriaBuilder().createQuery(Word.class);
@@ -832,7 +889,7 @@ public class MorphemStreamEngine extends PDFGraphicsStreamEngine {
 		}
 	}
 	
-	private void saveWords(List<Word> words){
+	private void saveWords(Collection<Word> words){
 		em.getTransaction().begin();
 		try{
 			for (Word w: words){

@@ -55,10 +55,10 @@ public class Word implements Comparable<Word>, Serializable {
 	protected final int id = SEQUENCE++;
 	
 	@Column
-	private final String line;
+	private String line;
 
 	@Column
-	private String text;
+	private String text, notes;
 
 //	@Transient
 	@OneToOne(fetch = FetchType.LAZY)
@@ -75,6 +75,8 @@ public class Word implements Comparable<Word>, Serializable {
 	final double x,y, len;
 	
 	final boolean hyphen;
+	@Column(nullable = true)
+	private Boolean deprecated;
 
 //	@XmlID
 	@XmlElement
@@ -90,6 +92,10 @@ public class Word implements Comparable<Word>, Serializable {
 			;
 	}
 
+	public void updateLine(String line) {
+		this.line = line;
+	}
+
 	public void setText(String text) {
 		this.text = text;
 	}
@@ -102,10 +108,18 @@ public class Word implements Comparable<Word>, Serializable {
 	public double getLen() {
 		return len;
 	}
-	
+
+	public void setNotes(String notes) {
+		this.notes = notes;
+	}
+
+	public void deprecate(){
+		deprecated = true;
+	}
+
 	@Override
 	public String toString() {
-		String main = "w{" + line + '}' + Integer.toString((int)x) + "/" + Integer.toString((int)y);
+		String main = "{" + line + '}' + Integer.toString((int)x) + "/" + Integer.toString((int)y);
 		if (base==null){
 			return main;
 		}

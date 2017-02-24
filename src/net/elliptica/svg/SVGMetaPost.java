@@ -39,6 +39,10 @@ public class SVGMetaPost {
 	  engine.reparseWords();
   }
 
+  public static void findComments(MorphemStreamEngine engine){
+	  engine.findComments();
+  }
+
   /**
    * Reads a file and parses the path elements.
    * 

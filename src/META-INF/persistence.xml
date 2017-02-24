@@ -22,6 +22,7 @@
       <property name="javax.persistence.jdbc.user" value="spyvk"/>
       <property name="javax.persistence.jdbc.driver" value="org.postgresql.Driver"/>
       <property name="javax.persistence.jdbc.password" value="numlltip"/>
+      <property name="eclipselink.canonicalmodel.subpackage" value="lite"/>
     </properties>
   </persistence-unit>
 </persistence>
