@@ -10,8 +10,11 @@
 
 package net.elliptica.svg;
 
+import com.ibm.icu.text.Transliterator;
 import java.io.File;
 import java.io.IOException;
+import java.util.Enumeration;
+import java.util.stream.Stream;
 import static net.elliptica.svg.SVGMetaPostTest.document;
 import static net.elliptica.svg.SVGMetaPostTest.engine;
 import org.apache.pdfbox.pdmodel.PDDocument;
@@ -31,12 +34,63 @@ public class JPATests {
 		engine = new MorphemStreamEngine(null);
 	}
 
+	@Test
+	public void testCommonClean(){
+		System.out.println("commonClean");
+		engine.commonClean();
+	}
 
 	@Test
-	void testExtractAlters(){
-		System.out.println("findAlters");
-		engine.findAlters();
-		
+	public void testFixAlters(){
+		System.out.println("fixAlters");
+		engine.fixAlters();
+	}
+
+	@Test
+	public void testFixHyphens(){
+		System.out.println("fixHyphens");
+		engine.fixHyphens();
+	}
+
+	@Test
+	public void testDeleteNotes(){
+		System.out.println("deleteNotes");
+		engine.deleteNotes();
+	}
+
+	@Test
+	public void testReplaceLatins(){
+		System.out.println("replaceLatins");
+		engine.replaceLatins();
+	}
+
+	@Test
+	public void testLatins(){
+		char sym[] = {'a'};
+		Stream.generate(() -> {
+			return sym[0]++;
+		})
+			.limit(30)
+			.forEach(System.out::print
+/*
+					c -> 
+System.out.print(
+"		case '" + c + "':\n" +
+"			chars[i] = '';\n" +
+"")*/
+			);
+	}
+
+	@Test
+	public void testShowWordTree(){
+		System.out.println("showWordTree");
+		engine.showWordTree(149684);
+	}
+
+	@Test
+	public void testExtractAlters(){
+		System.out.println("extractAlters");
+		engine.extractAlters();
 	}
 
 	@Test

@@ -39,7 +39,7 @@ public class Bunch implements Serializable, Comparable<Bunch> {
 	@Id
 	@XmlID
 	@XmlElement
-	protected final int id = SEQUENCE++;
+	protected final int id;
 	
 	@Transient
 	private final Line groupLine;
@@ -68,6 +68,7 @@ public class Bunch implements Serializable, Comparable<Bunch> {
 	private final double x, y, height, width;
 
 	public Bunch() {
+		id = 0;
 		words = null;
 		groupLine = null;
 		root = false;
@@ -75,6 +76,7 @@ public class Bunch implements Serializable, Comparable<Bunch> {
 	}
 
 	public Bunch(Line groupLine) {
+		this.id = SEQUENCE++;
 		this.groupLine = groupLine;
 		this.words = new HashSet<>();
 		root = groupLine.isRoot();
@@ -114,10 +116,13 @@ public class Bunch implements Serializable, Comparable<Bunch> {
 	}
 
 	Line getGroupLine() {
-		return groupLine;
+		if (groupLine!=null) {
+			return groupLine;
+		}
+		return new Line(new Point(x, y), new Point(x, y+height));
 	}
 	
-	private static int SEQUENCE = 0;
+	private static int SEQUENCE = 1001003;
 
 	private static final long serialVersionUID = 1L;
 

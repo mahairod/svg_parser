@@ -21,6 +21,14 @@ public class Line extends Line2D.Double implements Comparable<Line> {
 	public Line() {
 	}
 
+	public Line(double x1, double y1, double x2, double y2) {
+		this(new Point(x1, y1), new Point(x2, y2));
+	}
+
+	public Line(double x1, double x2, double y) {
+		this(new Point(x1, y), new Point(x2, y+9.));
+	}
+
 	public Line(Point p1, Point p2) {
 		super(p1, p2);
 		if (p1.compareTo(p2) >0){
@@ -29,10 +37,7 @@ public class Line extends Line2D.Double implements Comparable<Line> {
 	}
 
 	public Line(Point p1, Point p2, boolean root) {
-		super(p1, p2);
-		if (p1.compareTo(p2) >0){
-			setLine(x2, y2, x1, y1);
-		}
+		this(p1, p2);
 		this.root = root;
 	}
 	@Override

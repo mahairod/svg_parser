@@ -9,9 +9,12 @@
  */
 package net.elliptica.svg;
 
+import com.sun.xml.rpc.processor.util.IndentingWriter;
 import java.awt.geom.Point2D;
+import java.io.BufferedWriter;
 import java.io.File;
 import java.io.IOException;
+import java.io.OutputStreamWriter;
 import java.io.PrintStream;
 import java.util.HashMap;
 import java.util.Map;
@@ -32,6 +35,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.NavigableMap;
@@ -39,12 +43,17 @@ import java.util.NavigableSet;
 import java.util.Set;
 import java.util.Stack;
 import java.util.TreeSet;
+import java.util.function.Consumer;
+import java.util.function.Function;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import javax.persistence.EntityManager;
 import javax.persistence.EntityManagerFactory;
 import javax.persistence.Persistence;
+import javax.persistence.TypedQuery;
 import javax.persistence.criteria.CriteriaBuilder;
 import javax.persistence.criteria.CriteriaQuery;
 import javax.persistence.criteria.Expression;
@@ -62,6 +71,7 @@ import javax.xml.bind.annotation.XmlRootElement;
 import org.apache.pdfbox.cos.COSNumber;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.util.Vector;
+import org.eclipse.persistence.jpa.JpaCriteriaBuilder;
 
 /**
  *
@@ -90,7 +100,7 @@ public class MorphemStreamEngine extends PDFGraphicsStreamEngine implements Data
 		}
 	}
 	private void initJPA(){
-		EntityManagerFactory emf = Persistence.createEntityManagerFactory( LITE_DB ? "SVGParserPU-Lite" : "SVGParserPU");
+		EntityManagerFactory emf = Persistence.createEntityManagerFactory( LITE_DB ? "SVGParserPU_Lite" : "SVGParserPU");
 		em = emf.createEntityManager();
 	}
 
@@ -112,7 +122,7 @@ public class MorphemStreamEngine extends PDFGraphicsStreamEngine implements Data
 	public void clip(int windingRule) throws IOException {
 //		ps.println("clip");
 	}
-	
+
 	@Override
 	public void moveTo(float x, float y) throws IOException {
 		if (lineStart != null && LEFT_BORDER<x && x<RIGHT_BORDER){
@@ -179,7 +189,7 @@ public class MorphemStreamEngine extends PDFGraphicsStreamEngine implements Data
 	public void shadingFill(COSName shadingName) throws IOException {
 		ps.println("shadingFill " + shadingName.toString());
 	}
-	
+
 	private int str_counter = 0;
 	static int str_first = 0;
 	static boolean PRINT_RESULT = false;
@@ -205,7 +215,7 @@ public class MorphemStreamEngine extends PDFGraphicsStreamEngine implements Data
 			chars[i] = mapper.map(code, font);
 		}
 		String orig = new String(chars);
-		
+
 		if (PRINT_INPUT){
 			Matrix m = getTextMatrix();
 			System.err.println(String.format("%d:\t%05.1f/%05.1f\t«%s»", str_counter, m.getTranslateX(), m.getTranslateY(), orig));
@@ -219,7 +229,7 @@ public class MorphemStreamEngine extends PDFGraphicsStreamEngine implements Data
 
 	private CharMapper mapper;
 	private PDFont font;
-	
+
 	void showTextString_(String orig, byte[] string) throws IOException {
 		if (font.getName().contains("PragmaticaC")) return;
 
@@ -245,7 +255,7 @@ public class MorphemStreamEngine extends PDFGraphicsStreamEngine implements Data
 //				refreshAccum_("\t");
 				tabul = true;
 			}
-			
+
 		}
 
 		double span = 0.;
@@ -330,14 +340,14 @@ public class MorphemStreamEngine extends PDFGraphicsStreamEngine implements Data
 			applyTextAdjustment(-dx, 0);
 		}
 	}
-	
+
 	private boolean isSeparatedWord(String text){
 		double newX = getTextMatrix().getTranslateX();
 		if (linestate.coord.x > newX || newX > linestate.coord.x+10. || linestate.accumulator.isEmpty() || text.isEmpty() ){
 			return false;
 		}
 		return linestate.accumulator.endsWith("-");
-		
+
 	}
 
 	private boolean goingDown(){
@@ -354,7 +364,7 @@ public class MorphemStreamEngine extends PDFGraphicsStreamEngine implements Data
 		if (res) printCoord(curCoord);
 		return res;
 	}
-	
+
 	void printCoord(Point p){
 //		ps.print("\u001b[35;47m\n" + p.toString() + "\u001b[0m");
 	}
@@ -396,7 +406,7 @@ public class MorphemStreamEngine extends PDFGraphicsStreamEngine implements Data
 		public LineState clone() throws CloneNotSupportedException {
 			return (LineState) super.clone();
 		}
-		
+
 		double calcLength(byte[] codes) throws IOException {
 			if (codes == null){
 				return 0.;
@@ -451,7 +461,7 @@ public class MorphemStreamEngine extends PDFGraphicsStreamEngine implements Data
 					"[" + accumulator + "]->" +
 					previous;
 		}
-		
+
 	}
 
 	private void refreshAccum_(String newVal) throws IOException{
@@ -502,7 +512,7 @@ public class MorphemStreamEngine extends PDFGraphicsStreamEngine implements Data
 			linestate.coord = new Point(trM.getTranslateX(), trM.getTranslateY());
 		}
 	}
-	
+
 	private boolean isReference(String text){
 		boolean ref = isReference_(text);
 		if (!ref){
@@ -533,15 +543,15 @@ public class MorphemStreamEngine extends PDFGraphicsStreamEngine implements Data
 	private static final double RIGHT_BORDER = 301.0;
 
 	private Stack<LineState> lineStates = new Stack<>();
-	
+
 	NavigableMap<Point,Word> textsRegions = new TreeMap<>();
 	private Mean avgFontScale;
 	private final static String REF_SYMBOLS = "⁰¹²³⁴⁵⁶⁷⁸⁹";
-	
+
 	private final PrintStream ps = PRINT_RESULT ? 
-			System.out :
+			new FormatStream() :
 			DummyPrintStream.instanse("log");
-	
+
 	void pushState(){
 		try {
 			lineStates.push(linestate.clone());
@@ -561,7 +571,7 @@ public class MorphemStreamEngine extends PDFGraphicsStreamEngine implements Data
 	boolean midState(){
 		return !lineStates.empty();
 	}
-	
+
 	private void shiftRight(double offset) throws IOException{
         PDTextState textState = getGraphicsState().getTextState();
         float fontSize = textState.getFontSize();
@@ -575,7 +585,7 @@ public class MorphemStreamEngine extends PDFGraphicsStreamEngine implements Data
 			}
 		}
 	}
-	
+
 	@Override
 	public void showTextStrings(COSArray array) throws IOException {
 		for (COSBase base: array){
@@ -591,7 +601,7 @@ public class MorphemStreamEngine extends PDFGraphicsStreamEngine implements Data
 			}
 		}
 	}
-	
+
 	static boolean SAVE_DB = false;
 	static boolean LOAD_DB = false;
 	static boolean SAVE_XML = false;
@@ -634,7 +644,7 @@ public class MorphemStreamEngine extends PDFGraphicsStreamEngine implements Data
 			}
 			bunch.page = page;
 		}
-		
+
 		int regroupTryCount = 10;
 
 	do{
@@ -687,7 +697,7 @@ public class MorphemStreamEngine extends PDFGraphicsStreamEngine implements Data
 			regroupTryCount = 0;
 		}
 	} while (regroupTryCount>0);
-		
+
 		int overall = groups.stream().mapToInt(g -> g.words.size()).sum();
 		pageGroups.put(page, groups);
 
@@ -697,7 +707,7 @@ public class MorphemStreamEngine extends PDFGraphicsStreamEngine implements Data
 		if (SAVE_DB){
 			saveDB();
 		}
-		
+
 		List<Word> selfPopinters = textsRegions.values().stream().filter(w -> w.getGroup() == w.getDerived()).collect(Collectors.toList());
 		long selfPointersCnt = selfPopinters.size();
 		if (selfPointersCnt>0){
@@ -712,9 +722,9 @@ public class MorphemStreamEngine extends PDFGraphicsStreamEngine implements Data
 		linestate = new LineState();
 		lineStates.clear();
 	}
-	
+
 	static long totalSelves = 0;
-	
+
 	private static void relinkInher(Word parent, Bunch der){
 		Bunch ob = parent.setDerived(der);
 		if (ob != der && ob != null){
@@ -728,7 +738,461 @@ public class MorphemStreamEngine extends PDFGraphicsStreamEngine implements Data
 			if (p!= null){
 				p.setDerived(null);
 			}
-			
+		}
+	}
+
+	interface Conditions<T> {
+		Predicate make(CriteriaBuilder cb, Root<T> root);
+	}
+
+	private <T> TypedQuery<T> makeEntitySelect(Class<T> type, Conditions conditions) {
+		CriteriaBuilder cb = em.getCriteriaBuilder();
+		CriteriaQuery<T> cq = cb.createQuery(type);
+		Root<T> root = cq.from(type);
+		cq.select(root);
+		cq.where(conditions.make(cb, root));
+		return em.createQuery(cq);
+	}
+
+	private void doWordProcessing(TypedQuery<Word> q, Consumer<Word> proc) {
+		em.getTransaction().begin();
+		List<Word> words = q.getResultList();
+		for (Word w: words) {
+			printWord(w, 1);
+			proc.accept(w);
+		}
+		em.getTransaction().commit();
+	}
+
+	private <T> void doProcessing(TypedQuery<T> q, Consumer<T> proc) {
+		em.getTransaction().begin();
+		List<T> beans = q.getResultList();
+		for (T b: beans) {
+			proc.accept(b);
+		}
+		em.getTransaction().commit();
+	}
+
+	@Override
+	public void fixAlters() {
+		TypedQuery<Word> q = makeEntitySelect(Word.class, (cb,root) -> {
+			Path<String> line = root.get(Word_.line);
+			return cb.and(
+					cb.like(line, "(%)_%")
+//					cb.like(line, "%(%черед.%)%"),
+//					cb.notLike(line, "%)")
+			);
+		});
+		doWordProcessing(q, w -> {
+			Word tail = fixWord2(w);
+			if (tail!=null) {
+				em.persist(tail);
+				em.merge(tail.getBase());
+			}
+		});
+	}
+
+	private Word fixWord2(Word word) {
+		String line = word.getLine();
+		String patt = "\\(|\\)";
+		String parts[] = line.split(patt);
+		String par[] = {
+//			"===к",
+			parts[1],
+			line.substring(line.indexOf(parts[2]))
+		};
+		return fixWord_(word, par);
+	}
+	private Word fixWord(Word word) {
+		LineProcessor lp = new LineProcessor();
+		String[] parts = lp.splitAlterLinePrefix(word.getLine());
+		return fixWord_(word, parts);
+	}
+	private Word fixWord_(Word word, String[] parts) {
+		double cutLen = word.len * parts[0].length() / word.getLine().length();
+		double splitPos = word.x + cutLen;
+
+		Point groupLocation = new Point(splitPos, word.y);
+
+		Bunch derived = findNearestGroup(word, word.getGroup(), groupLocation, cutLen*1.5);
+		int id = word.getId();
+		if (derived==null) {
+			switch (id) {
+				case 117370:
+				case 121137:
+				case 127042:
+				case 143699:
+					return null;
+				default:
+					derived.getClass();
+					return null;
+			}
+		} else {
+			Word extract = word.splitRight(parts[0].length());
+			extract.setGroup(derived);
+			return extract;
+		}
+	}
+
+	private void visitNearestNeighbours(Word word, Bunch group, Function<Word, Boolean> proc) {
+		NavigableSet<Word> neighbours = new TreeSet<>((w1,w2) -> (int)(5000*(abs(word.y - w1.y) - abs(word.y - w2.y))));
+		neighbours.addAll(group.words);
+		neighbours.remove(word);
+		for (Word bw: neighbours) {
+			if (proc.apply(bw)) break;
+		}
+	}
+
+	private Bunch findNearestGroup(Word word, Bunch group, Point groupLocation, double cutLen) {
+		Bunch derived[] = {null};
+		visitNearestNeighbours(word, group, bw -> {
+			Bunch cand = bw.getDerived();
+			if (cand == null) {
+				return false;
+			}
+			if (cand.getGroupLine().isCovered(groupLocation, cutLen)) {
+				derived[0] = cand;
+				return true;
+			} else {
+				derived[0] = findNearestGroup(word, cand, groupLocation, cutLen*1.2);
+			}
+			return (derived[0] != null);
+		});
+		return derived[0];
+	}
+
+	public void replaceLatins() {
+		TypedQuery<Word> q = makeEntitySelect(Word.class, (cb,root) -> {
+			Path<String> line = root.get(Word_.line);
+			JpaCriteriaBuilder ecb = (JpaCriteriaBuilder) cb;
+			return cb.isTrue(ecb.fromExpression(ecb.toExpression(line).regexp(".*[a-ik-z].*")));
+//			return cb.isTrue(cb.function("similar to", Boolean.class, line, cb.literal("%[a-ik-z]%")));
+		});
+		doWordProcessing(q, w -> {
+			String ln = w.getLine();
+			w.updateLine(replaceLat(ln));
+			em.merge(w);
+		});
+	}
+
+	private static final String LAT_CHARS = "abcdefghijklmnopqrstuvwxyz";
+	private static final String CYR_CHARS = "а.с.е.....к.тпор.г.....ху.";
+
+	private String replaceLat(String lat) {
+		char[] chars = lat.toCharArray();
+		for (int i=0; i< chars.length; i++) {
+			char c = chars[i];
+			if ('a' <= c && c <= 'z') {
+				int ind = c - 'a';
+				c = CYR_CHARS.charAt(ind);
+				if (c != '.') {
+					chars[i] = c;
+				}
+			}
+		}
+		return new String(chars);
+	}
+
+	public void commonClean() {
+		TypedQuery<Word> q = makeEntitySelect(Word.class, (cb,root) -> {
+			Path<String> line = root.get(Word_.line);
+			return cb.like(line, "%→%");
+		});
+		doWordProcessing(q, w -> {
+			String[] parts = w.getLine().split("→");
+			String head = parts[0];
+			if (head.trim().isEmpty()) return;
+			if (head.lastIndexOf('(') > head.lastIndexOf(')')) {
+				return;
+			}
+			boolean saveTail = true;
+			if (saveTail) {
+				Word tail = w.splitRight(head.length()+1);
+				w.updateLine(head.substring(0, head.length()-1));
+				Bunch g = new Bunch(new Line(tail.x, tail.x + tail.len, tail.y));
+				g.page = w.getGroup().page;
+				g.setParent(w);
+				w.setDerived(g);
+				tail.setGroup(g);
+
+				em.persist(g);
+				em.persist(tail);
+				em.merge(w);
+			}
+		});
+	}
+
+	@Override
+	public void fixHyphens() {
+		Integer[] brokenGroups = {
+			118, 10837, 16917, 23790, 29134, 34444, 47372, 58121, 64154, 71202,
+			12968, 57982, 6834, 6838
+		};
+		TypedQuery<Bunch> q = makeEntitySelect(Bunch.class, (cb,root) -> {
+			Path<Long> grId = root.get(Bunch_.id);
+			return grId.in(brokenGroups);
+		});
+		doProcessing(q, gr -> {
+			String parLn = gr.parent == null ? "---------" : cleanLine(gr.parent.getLine());
+			for (Word w: gr.words) {
+				String chLn = cleanLine(w.getLine());
+				ParentSubLineMatcher matcher = new ParentSubLineMatcher(chLn, w);
+
+				// common prefix
+				int prefLen;
+				int minLen = Math.min(parLn.length(),chLn.length());
+				for (prefLen=0; prefLen<minLen && parLn.charAt(prefLen)==chLn.charAt(prefLen); prefLen++);
+
+				if (prefLen < (minLen+1)/2) {
+					Word target = findRelatedWord(w, gr, matcher);
+					target.updateLine(target.getLine() + w.getLine());
+					relinkDerives(target, w);
+					w.deprecate();
+				}
+			}
+		});
+	}
+
+	private class ParentSubLineMatcher implements Function<Word, Boolean> {
+		private final String lostLine;
+		private final Word lostWord;
+		private LineProcessor lp;
+
+		public ParentSubLineMatcher(String lostLine, Word lostWord) {
+			this.lostLine = lostLine;
+			this.lostWord = lostWord;
+		}
+
+		@Override
+		public Boolean apply(Word t) {
+			String upper = cleanLine(t.getLine());
+			boolean toMerge = true;
+			// check length first
+			toMerge = toMerge && upper.length() > lostLine.length() / 2;
+
+			// check for substrings
+			Set<String> substrings = longestCS(upper, lostLine);
+			if (substrings.isEmpty()) {
+				toMerge = toMerge && true;
+			} else {
+				int subLen = substrings.iterator().next().length();
+				if (subLen < upper.length() / 3) {
+					toMerge = toMerge && true;
+				} else {
+					toMerge = toMerge && 
+						!upper.startsWith(lostLine.substring(0, subLen));
+				}
+			}
+			return toMerge;
+		}
+		private Set<String> longestCS(String left, String right) {
+			int[][] table = new int[left.length()][right.length()];
+			int longest = 0;
+			Set<String> result = new HashSet<>();
+			for (int i = 0; i < left.length(); i++) {
+				for (int j = 0; j < right.length(); j++) {
+					if (left.charAt(i) != right.charAt(j)) {
+						continue;
+					}
+
+					table[i][j] = (i+j == 0) ? 1 : 1 + table[i - 1][j - 1];
+					if (table[i][j] > longest) {
+						longest = table[i][j];
+						result.clear();
+					}
+					if (table[i][j] == longest) {
+						result.add(left.substring(i - longest + 1, i + 1));
+					}
+				}
+			}
+			return result;
+		}
+	}
+
+	private Pattern cleanPatt = Pattern.compile("[^а-ёj]+");
+	private Pattern packPatt = Pattern.compile("j[аэоу]");
+	private String cleanLine(String orig) {
+		String res = cleanPatt.matcher(orig).replaceAll("");
+		Matcher m = packPatt.matcher(res);
+		StringBuffer sb = new StringBuffer(res.length());
+		while (m.find()) {
+			String g = m.group();
+			switch (g.charAt(1)) {
+				case 'а':
+					g = "я"; break;
+				case 'э':
+					g = "е"; break;
+				case 'о':
+					g = "ё"; break;
+				case 'у':
+					g = "ю"; break;
+			}
+			m.appendReplacement(sb, g);
+		}
+		return m.appendTail(sb).toString();
+	}
+
+	private void relinkDerives(Word parent, Word child) {
+		Bunch pder = parent.getDerived();
+		Bunch der = child.getDerived();
+		if (pder != null && der != null && pder!=der) {
+			throw new IllegalStateException("Multiple groups to same word (while merging comment)");
+		}
+		relinkInher(parent, child.getDerived());
+	}
+
+	@Override
+	public void deleteNotes() {
+		TypedQuery<Word> q = makeEntitySelect(Word.class, (cb,root) -> {
+			Path<String> line = root.get(Word_.line);
+			return cb.like(line, "[%]");
+		});
+		LineProcessor lp = new LineProcessor();
+		lp.setFormatType(LineProcessor.FormatType.Clean);
+		doWordProcessing(q, w -> {
+			final String note = lp.format(w.getLine())
+					.replaceAll("^\\[", "").replaceAll("\\]$", "")
+					.replaceFirst("´", "")
+					.replaceAll("\\|", "")
+					.replaceFirst("’j-э", "ье")
+					.replaceFirst("([’" + consonants + "])j-э", "$1ье")
+					.replaceFirst("([’" + consonants + "])j-о", "$1ьё")
+					.replaceFirst("j’?-э", "е")
+					.replaceFirst("([" + vowels + "])j-а", "$1я")
+					.replaceFirst("’j-а", "ья")
+					.replaceFirst("еj-а", "ея")
+					.replaceFirst("j-а", "ия")
+					.replace("jа", "я")
+					.replace("яjи", "яи")
+					.replaceAll("-", "")
+					;
+			EqualLineMatcher matcher = new EqualLineMatcher(note, w);
+			Word parent = findRelatedWord(w, w.getGroup(), matcher);
+			parent.setNotes(w.getLine());
+			relinkDerives(parent, w);
+			w.deprecate();
+			em.merge(w);
+			em.merge(parent);
+		});
+	}
+
+	class EqualLineMatcher implements Function<Word, Boolean> {
+		public EqualLineMatcher(String note, Word noteword) {
+			this.note = note;
+			this.noteword = noteword;
+			this.lp = new LineProcessor();
+			lp.setFormatType(LineProcessor.FormatType.Clean);
+		}
+		private final String note;
+		private final Word noteword;
+		private final LineProcessor lp;
+		@Override
+		public Boolean apply(Word bw) {
+			String line = lp.format(bw.getLine())
+					.replaceFirst("^•", "")
+					.replaceFirst("´", "")
+					.replaceFirst(" I+$", "")
+					.replace("(", "").replace(")", "")
+					.replace("[j]-и", "и")
+					.replaceFirst("\\[([" + consonants + "])’?j\\]-и", "$1ьи")
+					.replaceFirst("([" + consonants + "])\\[j-э\\]", "$1ье")
+					.replaceFirst("([" + consonants + "])\\[j-о\\]", "$1ьё")
+					.replaceFirst("([" + consonants + "])\\[j-и\\]", "$1ьи")
+					.replace("[j-э]", "е")
+					.replaceAll("-", "")
+					.replaceAll("\\(", "").replaceAll("\\)", "")
+					.replaceAll("\\|", "");
+
+			if ( note!=null && !note.equals(line) ) {
+				switch (noteword.getId()) {
+					case 31208:
+					case 51314:
+					case 73043:
+					case 137966:
+						return true;
+					default:
+						return false;
+				}
+			}
+			return false;
+		}
+	}
+
+	private Word findRelatedWord(final Word noteword, final Bunch group, final Function<Word, Boolean> lineMatcher) {
+		Word result[] = {null};
+
+		visitNearestNeighbours(noteword, group, bw -> {
+			if (bw.y < noteword.y || bw.isDeprecated()) {
+				return false;
+			}
+			Bunch derived = bw.getDerived();
+			RuntimeException ex = null;
+			if (bw.x+bw.len/2 < noteword.x-6.5 ||
+					(
+						derived!=null && 
+						bw.x+bw.len*0.8 > derived.getGroupLine().x1+4. &&
+						0 >= derived.getGroupLine().compareTo(new Line(new Point(bw.x, bw.y), new Point(bw.x, bw.y+9.)))
+					)
+			) {
+				ex = new IllegalStateException("Related word is out of bounds");
+			}
+			if (ex == null && lineMatcher.apply(bw)) {
+				ex = new IllegalStateException("Related word is not the same");
+			}
+			if (ex != null) {
+				if (bw.getDerived() != null) {
+					result[0] = findRelatedWord(noteword, bw.getDerived(), lineMatcher);
+				}
+				if (result[0] == null) {
+					throw  ex;
+				}
+			} else {
+				result[0] = bw;
+			}
+			return (result[0] != null);
+		});
+		return result[0];
+	}
+
+	private static final String vowels = "аоуэыяёюеи";
+	private static String consonants = "";
+	static {
+		for (char сим = 'а'; сим <= 'я'; сим++){
+			if (vowels.indexOf(сим)<0){
+				consonants += сим;
+			}
+		}
+	}
+
+	@Override
+	public void showWordTree(int id) {
+		CriteriaQuery<Word> cq = em.getCriteriaBuilder().createQuery(Word.class);
+		Root<Word> root = cq.from(Word.class);
+		cq.select(root);
+		cq.where(em.getCriteriaBuilder().equal(root.get("id"), id));
+		Word word = em.createQuery(cq).getSingleResult();
+		printWord(word, 0);
+	}
+
+	private void tabs(int tabs) {
+		for (int i=0; i<tabs; i++) {
+			System.out.print('\t');
+		}
+	}
+	private void printWord(Word root, int tabs) {
+		tabs(tabs);
+		ps.print(root.getId());
+		ps.print(":  " + Integer.valueOf((int)root.x) + " = ");
+		ps.println(root.getLine());
+
+		if (root.getDerived()==null) return;
+		tabs(tabs+1);
+		ps.println("\t=== " + root.getDerived().id);
+
+		Set<Word> words = new TreeSet<>((wl,wr) -> -(int)(wl.y - wr.y));
+		words.addAll(root.getDerived().words);
+		for (Word w: words) {
+			printWord(w, tabs+2);
 		}
 	}
 
@@ -779,7 +1243,7 @@ public class MorphemStreamEngine extends PDFGraphicsStreamEngine implements Data
 	private Integer page;
 	private PDPage pageContent;
 	private final PDDocument document;
-	
+
 	@XmlRootElement
 	static class GrRoot {
 		@XmlElement(name = "group")
@@ -798,25 +1262,33 @@ public class MorphemStreamEngine extends PDFGraphicsStreamEngine implements Data
 		this.page = page;
 		pageContent = document.getPage(page);
 	}
-	
+
 	void process() throws IOException{
 		processPage(pageContent);
 	}
 
 	@Override
-	public void findAlters(){
+	public void extractAlters(){
 		CriteriaBuilder cb = em.getCriteriaBuilder();
-		CriteriaQuery<Integer> cq = cb.createQuery(Integer.class);
-		Root<Word> word = cq.from(Word.class);
-		cq.select(word.get(Word_.id)).where(LineProcessor.noteAlternPred(cb, word));
-		
-		List<Integer> wordIds = em.createQuery(cq).getResultList();
+		CriteriaQuery<Word> cq = cb.createQuery(Word.class);
+		Root<Word> root = cq.from(Word.class);
+		cq.select(root).where(LineProcessor.noteAlternPred(cb, root),
+				cb.ge(root.get("id"), 126735)
+				);
 
-	}
+		LineProcessor lp = new LineProcessor();
+		int offs = 0;
+		while(true) {
+			List<Word> words = em.createQuery(cq).setMaxResults(100).setFirstResult(offs).getResultList();
+			if (words==null || words.isEmpty()){
+				break;
+			}
+			lp.extractAlternations(words);
+			if (!words.isEmpty()){
+//				saveWords(words);
+			}
+		};
 
-	private boolean findAltersInWord(int page){
-		boolean m = false;
-		return m;
 	}
 
 	@Override
@@ -828,7 +1300,7 @@ public class MorphemStreamEngine extends PDFGraphicsStreamEngine implements Data
 		SetJoin<Bunch,Word> word = broot.join(Bunch_.words);
 
 		cq.select(broot.get(Bunch_.page)).where(LineProcessor.excludingParan(cb, word));
-		
+
 		List<Integer> pagesIds = em.createQuery(cq).getResultList();
 
 		for (int pageId: pagesIds){
@@ -845,7 +1317,7 @@ public class MorphemStreamEngine extends PDFGraphicsStreamEngine implements Data
 		Path<Bunch> root = cq.from(Bunch.class);
 		cq.select(root).where(cb.equal(root.get(Bunch_.page), page));
 		List<Bunch> bunches = em.createQuery(cq).getResultList();
-		
+
 		LineProcessor lp = new LineProcessor();
 		boolean m = false;
 		try{
@@ -867,7 +1339,7 @@ public class MorphemStreamEngine extends PDFGraphicsStreamEngine implements Data
 	}
 
 	private Comparator<Word> bunchSorter = (Word wl, Word wr) -> (int) ((wr.y - wl.y) * 100);
-	
+
 	@Override
 	public void reparseWords(){
 		CriteriaQuery<Word> cq = em.getCriteriaBuilder().createQuery(Word.class);
@@ -875,7 +1347,7 @@ public class MorphemStreamEngine extends PDFGraphicsStreamEngine implements Data
 		List<Word> words = em.createQuery(cq).getResultList();
 
 		List<Word> prepared = new ArrayList<>(20);
-		
+
 		for (Word word: words){
 			String line = word.getLine();
 			String[] parts = line.split("\u001b[\u001c-\u001f]");
@@ -907,7 +1379,7 @@ public class MorphemStreamEngine extends PDFGraphicsStreamEngine implements Data
 			saveWords(prepared);
 		}
 	}
-	
+
 	private void saveWords(Collection<Word> words){
 		em.getTransaction().begin();
 		try{

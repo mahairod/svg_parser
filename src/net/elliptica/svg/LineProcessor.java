@@ -12,14 +12,19 @@ package net.elliptica.svg;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Iterator;
 import java.util.List;
 import java.util.NavigableSet;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import javax.persistence.criteria.CriteriaBuilder;
 import javax.persistence.criteria.Expression;
 import javax.persistence.criteria.Predicate;
 import javax.persistence.criteria.Root;
 import javax.persistence.criteria.SetJoin;
 import static net.elliptica.svg.LineProcessor.Format.*;
+import static net.elliptica.svg.LineProcessor.FormatClean.*;
+import static net.elliptica.svg.LineProcessor.FormatConsole.*;
 
 /**
  *
@@ -27,13 +32,46 @@ import static net.elliptica.svg.LineProcessor.Format.*;
  */
 public class LineProcessor {
 
-	boolean extractAlternations(NavigableSet<Word> words){
+	boolean extractAlternations(List<Word> words){
 		boolean altered = false;
-		for (Word w: words){
-			
+		for (Iterator<Word> it = words.iterator(); it.hasNext(); ){
+			String line = it.next().getLine();
+			Matcher m = ALTERN_PATT.matcher(line);
+			if (!m.matches()){
+				it.remove();
+				continue;
+			}
+			totalAlters++;
 		}
 		return altered;
 	}
+
+	void setFormatType(FormatType formatType) {
+		this.formatType = formatType;
+	}
+
+	String[] splitAlterLinePrefix(String line) {
+		Matcher m = ALTERN_PATT.matcher(line);
+		if (m.find()) {
+			int mainPos = m.start(0);
+			int mainEnd = m.end(0);
+			String match = m.group(0);
+			String[] res = {line.substring(0, mainEnd), line.substring(mainEnd)};
+			return res;
+		} else {
+			return null;
+		}
+	}
+
+	private int totalAlters = 0;
+	private FormatType formatType = FormatType.Inplace;
+
+	enum FormatType {
+		Console, Inplace, Clean
+	}
+
+	private static final String ALTERN_PATT_STR = ".*\\(черед.((|)[а-ё’]+((|)|)(–|-)(|)[а-ё]+(; |, |))+\\)";
+	private final Pattern ALTERN_PATT = Pattern.compile(ALTERN_PATT_STR);
 
 	boolean process(NavigableSet<Word> words) throws MergeError {
 		StringBuilder sb = null;
@@ -125,7 +163,7 @@ public class LineProcessor {
 		}
 		return altered;
 	}
-	
+
 	void postmerge(StringBuilder sb){
 		int len = sb.length();
 		int offs = (sb.charAt(0)=='\u001b') ? 2 : 0;
@@ -146,7 +184,7 @@ public class LineProcessor {
 			}
 		}
 	}
-	
+
 	class MergeError extends Exception {
 		public MergeError(String message) {
 			super(message);
@@ -156,7 +194,7 @@ public class LineProcessor {
 		String ln = format(line);
 		String alter = "(" + Italic.f("черед.");
 		if (ln.contains(alter)){
-			
+
 		}
 
 		String flex = "(" + RU_STR + ")";
@@ -171,15 +209,34 @@ public class LineProcessor {
 		for (String pt: pts){
 			if (pt.isEmpty()) continue;
 			int f = pt.charAt(0) - '\u001c';
-			res += formats[f].f(pt.substring(1));
+			res += getFormats()[f].f(pt.substring(1));
 		}
 		return res;
 	}
-	
+
+	FormatInterface[] getFormats() {
+		switch (formatType) {
+			case Inplace:
+				return formats;
+			case Console:
+				return consoleFormats;
+			case Clean:
+				return cleanFormats;
+			default:
+				return null;
+		}
+	}
+
 	static final Format[] formats = {
 		BoldItalic, Italic, Bold, Clean
 	};
-	
+	static final FormatConsole[] consoleFormats = {
+		BoldItalicCF, ItalicCF, BoldCF, CleanCF
+	};
+	static final FormatClean[] cleanFormats = {
+		BoldItalicCL, ItalicCL, BoldCL, CleanCL
+	};
+
 	static final String RU_STR = "[а-ё\\-]+";
 	static final String STYLE_BOLDIT =	"\u001b\u001c";
 	static final String STYLE_ITALIC =	"\u001b\u001d";
@@ -187,13 +244,14 @@ public class LineProcessor {
 	static final String STYLE_CLEAN =	"\u001b\u001f";
 	static final String STYLE_ANY =		"\u001b.";
 
-	enum Format {
+	interface FormatInterface {
+		String f(String is);
+	}
+
+	enum Format implements FormatInterface {
 		Clean, Italic, Bold, BoldItalic;
 
-		char f(char ic){
-			return (char) (ic | m);
-		}
-		String f(String is){
+		public String f(String is){
 			char[] chars = is.toCharArray();
 			for (int i=0; i<chars.length; i++){
 				chars[i] |= m;
@@ -202,6 +260,22 @@ public class LineProcessor {
 		}
 
 		private final int m = ordinal() << 12;
+	}
+
+	enum FormatConsole implements FormatInterface {
+		CleanCF, BoldCF, ItalicCF, BoldItalicCF;
+		@Override
+		public String f(String is) {
+			return CharMapper.MAPPERS[ordinal()].getFormat() + is;
+		}
+	}
+
+	enum FormatClean implements FormatInterface {
+		CleanCL, BoldCL, ItalicCL, BoldItalicCL;
+		@Override
+		public String f(String is) {
+			return is;
+		}
 	}
 
 	void reportError(String msg){
@@ -232,7 +306,5 @@ public class LineProcessor {
 
 		return cb.and(deprec, like);
 	}
-
-	private static final String ALTERN_PATT = ".*\\(черед.((|)[а-ё’cmeoa]+((|)|)(–|-)(|)[а-ёeoa]+(; |, |))+\\)";
 
 }

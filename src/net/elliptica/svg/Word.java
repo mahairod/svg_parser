@@ -16,6 +16,7 @@ import javax.persistence.Column;
 import javax.persistence.Entity;
 import javax.persistence.FetchType;
 import javax.persistence.Id;
+import javax.persistence.JoinColumn;
 import javax.persistence.ManyToOne;
 import javax.persistence.OneToOne;
 import javax.persistence.Table;
@@ -33,6 +34,7 @@ import javax.xml.bind.annotation.XmlIDREF;
 public class Word implements Comparable<Word>, Serializable {
 
 	public Word() {
+		this.id = 0;
 		this.line = null;
 		this.base = null;
 		x= y= len= 0;
@@ -40,20 +42,33 @@ public class Word implements Comparable<Word>, Serializable {
 	}
 
 	public Word(MorphemStreamEngine.LineState ls) {
-		this.line = ls.accumulator;
-		this.base = ls.previous;
-		x = ls.coord.x;
-		y = ls.coord.y;
-		len = ls.len;
-		hyphen = ls.hyphen;
-		
+		this(ls.accumulator, ls.previous, ls.coord.x, ls.coord.y, ls.len, ls.hyphen);
+	}
+
+	private Word(String line, Word base, double x, double y, double len, boolean hyphen) {
+		this.id = SEQUENCE++;
+		this.line = line;
+		this.base = base;
+		this.x = x;
+		this.y = y;
+		this.len = len;
+		this.hyphen = hyphen;
+	}
+
+	private Word(String line, Word orig, double koeff) {
+		this(line, orig,
+				orig.x + (orig.len - orig.len * koeff),
+				orig.y,
+				orig.len * koeff,
+				orig.hyphen
+		);
 	}
 
 	@Id
 	@XmlID
 	@XmlElement
-	protected final int id = SEQUENCE++;
-	
+	protected final int id;
+
 	@Column
 	private String line;
 
@@ -70,10 +85,13 @@ public class Word implements Comparable<Word>, Serializable {
 //	@Transient
 	@ManyToOne(cascade = CascadeType.PERSIST, fetch = FetchType.LAZY)
 	private Bunch bunch;
-	
+
 	@Column
-	final double x,y, len;
-	
+	final double x,y;
+
+	@Column
+	double len;
+
 	final boolean hyphen;
 	@Column(nullable = true)
 	private Boolean deprecated;
@@ -109,12 +127,20 @@ public class Word implements Comparable<Word>, Serializable {
 		return len;
 	}
 
+	public Integer getId() {
+		return id;
+	}
+
 	public void setNotes(String notes) {
 		this.notes = notes;
 	}
 
 	public void deprecate(){
 		deprecated = true;
+	}
+
+	public Boolean isDeprecated() {
+		return deprecated == null ? false : deprecated;
 	}
 
 	@Override
@@ -147,7 +173,22 @@ public class Word implements Comparable<Word>, Serializable {
 		this.bunch = gr;
 		bunch.addWord(this);
 	}
-	
+
+	Word splitRight(int pos) {
+		double lenFull = line.length();
+		double rLenCf = (1. - pos / lenFull);
+
+		Word rWord = new Word(line.substring(pos), this, rLenCf);
+		len -= rWord.len;
+		line = line.substring(0, pos);
+		rWord.derived = derived;
+		if (derived!=null) {
+			derived.parent = rWord;
+		}
+		this.derived = null;
+		return rWord;
+	}
+
 	private Point getPoint(){
 		return new Point(x, y);
 	}
@@ -166,7 +207,7 @@ public class Word implements Comparable<Word>, Serializable {
 		return old;
 	}
 
-	static int SEQUENCE = 0;
+	static int SEQUENCE = 1001990;
 
 	private static final long serialVersionUID = 1L;
 
