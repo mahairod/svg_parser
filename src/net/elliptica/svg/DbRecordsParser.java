@@ -42,37 +42,17 @@ public class DbRecordsParser implements DataProcessor {
 		initJPA();
 	}
 
-	public void extractAlters() {
-		CriteriaBuilder cb = em.getCriteriaBuilder();
-		CriteriaQuery<Word> cq = cb.createQuery(Word.class);
-		Root<Word> root = cq.from(Word.class);
-		cq.select(root).where(LineProcessor.noteAlternPred(cb, root), cb.ge(root.get("id"), 126735));
-		LineProcessor lp = new LineProcessor();
-		int offs = 0;
-		while (true) {
-			List<Word> words = em.createQuery(cq).setMaxResults(100).setFirstResult(offs).getResultList();
-			if (words == null || words.isEmpty()) {
-				break;
-			}
-			lp.extractAlternations(words);
-			if (!words.isEmpty()) {
-			}
-		}
-	}
-
 	public void deleteNotes() {
-		TypedQuery<Word> q = makeEntitySelect(Word.class, (cb, root) -> {
-			Path<String> line = root.get(Word_.line);
-			return cb.like(line, "\u001b\u001f[%]");
-		});
 		LineProcessor lp = new LineProcessor();
 		lp.setFormatType(LineProcessor.FormatType.Clean);
-		doWordProcessing(q, (Word w) -> {
+		select(Word.class, (cb, root) -> {
+			Path<String> line = root.get(Word_.line);
+			return cb.like(line, "\u001b\u001f[%]");
+		}).process((Word w) -> {
 			final String note = lp.format(w.getLine())
 				.replaceAll("^\\[", "")
 				.replaceAll("\\]$", "")
-				.replaceFirst("´", "")
-				.replaceAll("\\|", "")
+				.replaceFirst("[´|]", "")
 				.replaceFirst("’j-э", "ье")
 				.replaceFirst("([’" + consonants + "])j-э", "$1ье")
 				.replaceFirst("([’" + consonants + "])j-о", "$1ьё")
@@ -91,19 +71,6 @@ public class DbRecordsParser implements DataProcessor {
 			w.deprecate();
 			em.merge(w);
 			em.merge(parent);
-		});
-	}
-
-	public void replaceLatins() {
-		TypedQuery<Word> q = makeEntitySelect(Word.class, (cb, root) -> {
-			Path<String> line = root.get(Word_.line);
-			JpaCriteriaBuilder ecb = (JpaCriteriaBuilder) cb;
-			return cb.isTrue(ecb.fromExpression(ecb.toExpression(line).regexp(".*[a-ik-z].*")));
-		});
-		doWordProcessing(q, (Word w) -> {
-			String ln = w.getLine();
-			w.updateLine(replaceLat(ln));
-			em.merge(w);
 		});
 	}
 
@@ -191,6 +158,7 @@ public class DbRecordsParser implements DataProcessor {
 		}
 	}
 
+	// <editor-fold defaultstate="collapsed" desc="DB ops">
 	private <T> void doProcessEach(TypedQuery<T> q, Consumer<T> proc) {
 		List<T> beans = q.getResultList();
 		for (T b : beans) {
@@ -200,7 +168,6 @@ public class DbRecordsParser implements DataProcessor {
 		}
 	}
 
-	// <editor-fold defaultstate="collapsed" desc="DB ops">
 	private <T> TypedQuery<T> makeEntitySelect(Class<T> type, Conditions conditions) {
 		CriteriaBuilder cb = em.getCriteriaBuilder();
 		CriteriaQuery<T> cq = cb.createQuery(type);
@@ -220,6 +187,11 @@ public class DbRecordsParser implements DataProcessor {
 		TypedQuery<T> q = makeEntitySelect(type, conditions);
 		return (action) -> action.accept(q.getSingleResult());
 	}
+	private <T> Consumer<Consumer<List<T>>> selectList(Class<T> type, int limit, Conditions conditions) {
+		TypedQuery<T> q = makeEntitySelect(type, conditions);
+		q.setMaxResults(limit);
+		return (action) -> action.accept(q.getResultList());
+	}
 
 	private <T> EntityProcessor<T> selectFunc(Class<T> type, Conditions conditions) {
 		return select_(type, conditions, this::doProcessEach);
@@ -232,6 +204,27 @@ public class DbRecordsParser implements DataProcessor {
 		return (action) -> applier.accept(query, action);
 	}
 	// </editor-fold>
+
+	public void replaceLatins() {
+		TypedQuery<Word> q = makeEntitySelect(Word.class, (cb, root) -> {
+			Path<String> line = root.get(Word_.line);
+			JpaCriteriaBuilder ecb = (JpaCriteriaBuilder) cb;
+			return cb.isTrue(ecb.fromExpression(ecb.toExpression(line).regexp(".*[a-ik-z].*")));
+		});
+		doWordProcessing(q, (Word w) -> {
+			String ln = w.getLine();
+			w.updateLine(replaceLat(ln));
+			em.merge(w);
+		});
+	}
+
+	public void extractAlters() {
+		selectList(Word.class, 100, (cb, root) -> cb.and(
+			LineProcessor.noteAlternPred(cb, root),
+			cb.ge(root.get("id"), 126735))
+		)
+			.accept(new LineProcessor()::extractAlternations);
+	}
 
 	public void commonClean() {
 		TypedQuery<Word> q = makeEntitySelect(Word.class, (cb, root) -> {
