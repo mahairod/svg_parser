@@ -13,6 +13,7 @@ package net.elliptica.svg;
 import java.io.PrintStream;
 import static java.lang.Math.abs;
 import java.util.*;
+import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.logging.Level;
@@ -93,50 +94,6 @@ public class DbRecordsParser implements DataProcessor {
 		});
 	}
 
-	public void commonClean() {
-		TypedQuery<Word> q = makeEntitySelect(Word.class, (cb, root) -> {
-			Path<String> line = root.get(Word_.line);
-			return cb.like(line, "%→%");
-		});
-		doWordProcessing(q, (Word w) -> {
-			String[] parts = w.getLine().split("→");
-			String head = parts[0];
-			if (head.trim().isEmpty()) {
-				return;
-			}
-			if (head.lastIndexOf('(') > head.lastIndexOf(')')) {
-				return;
-			}
-			boolean saveTail = true;
-			if (saveTail) {
-				Word tail = w.splitRight(head.length() + 1);
-				w.updateLine(head.substring(0, head.length() - 1));
-				Bunch g = new Bunch(new Line(tail.x, tail.x + tail.len, tail.y));
-				g.page = w.getGroup().page;
-				g.setParent(w);
-				w.setDerived(g);
-				tail.setGroup(g);
-				em.persist(g);
-				em.persist(tail);
-				em.merge(w);
-			}
-		});
-	}
-
-	public void fixAlters() {
-		TypedQuery<Word> q = makeEntitySelect(Word.class, (cb, root) -> {
-			Path<String> line = root.get(Word_.line);
-			return cb.and(cb.like(line, "\u001b\u001f(%)_%"));
-		});
-		doWordProcessing(q, (Word w) -> {
-			Word tail = fixWord2(w);
-			if (tail != null) {
-				em.persist(tail);
-				em.merge(tail.getBase());
-			}
-		});
-	}
-
 	public void replaceLatins() {
 		TypedQuery<Word> q = makeEntitySelect(Word.class, (cb, root) -> {
 			Path<String> line = root.get(Word_.line);
@@ -194,15 +151,210 @@ public class DbRecordsParser implements DataProcessor {
 		});
 	}
 
-	public void showWordTree(int id) {
-		CriteriaQuery<Word> cq = em.getCriteriaBuilder().createQuery(Word.class);
-		Root<Word> root = cq.from(Word.class);
-		cq.select(root);
-		cq.where(em.getCriteriaBuilder().equal(root.get("id"), id));
-		Word word = em.createQuery(cq).getSingleResult();
-		printWord(word, 0);
+	private Word findRelatedWord(final Word noteword, final Bunch group, final Function<Word, Boolean> lineMatcher) {
+		Word[] result = {null};
+		visitNearestNeighbours(noteword, group, (Word bw) -> {
+			if (bw.y < noteword.y || bw.isDeprecated()) {
+				return false;
+			}
+			Bunch derived = bw.getDerived();
+			RuntimeException ex = null;
+			if (bw.x + bw.len / 1.5 < noteword.x - 6.5 || (derived != null && bw.x + bw.len * 0.8 > derived.getGroupLine().x1 + 4.0 && 0 >= derived.getGroupLine().compareTo(new Line(new Point(bw.x, bw.y), new Point(bw.x, bw.y + 9.0))))) {
+				ex = new IllegalStateException("Related word is out of bounds");
+			}
+			if (ex == null && !lineMatcher.apply(bw)) {
+				ex = new IllegalStateException("Related word is not the same", NON_MATCHING_LINE);
+			}
+			if (ex != null) {
+				if (bw.getDerived() != null) {
+					result[0] = findRelatedWord(noteword, bw.getDerived(), lineMatcher);
+				}
+				if (result[0] == null) {
+					throw ex;
+				}
+			} else {
+				result[0] = bw;
+			}
+			return result[0] != null;
+		});
+		return result[0];
 	}
 
+	private void visitNearestNeighbours(Word word, Bunch group, Function<Word, Boolean> proc) {
+		NavigableSet<Word> neighbours = new TreeSet<>((Word w1, Word w2) -> (int) (5000 * (abs(word.y - w1.y) - abs(word.y - w2.y))));
+		neighbours.addAll(group.words);
+		neighbours.remove(word);
+		for (Word bw : neighbours) {
+			if (proc.apply(bw)) {
+				break;
+			}
+		}
+	}
+
+	private <T> void doProcessEach(TypedQuery<T> q, Consumer<T> proc) {
+		List<T> beans = q.getResultList();
+		for (T b : beans) {
+			em.getTransaction().begin();
+			proc.accept(b);
+			em.getTransaction().commit();
+		}
+	}
+
+	// <editor-fold defaultstate="collapsed" desc="DB ops">
+	private <T> TypedQuery<T> makeEntitySelect(Class<T> type, Conditions conditions) {
+		CriteriaBuilder cb = em.getCriteriaBuilder();
+		CriteriaQuery<T> cq = cb.createQuery(type);
+		Root<T> root = cq.from(type);
+		cq.select(root);
+		cq.where(conditions.make(cb, root));
+		return em.createQuery(cq);
+	}
+	interface EntityProcessor<T> {
+		void process(Consumer<T> proc);
+	}
+	private <T> EntityProcessor<T> select(Class<T> type, Conditions conditions) {
+		TypedQuery<T> query = makeEntitySelect(type, conditions);
+		return (action) -> doProcessEach(query, action);
+	}
+	private <T> EntityProcessor<T> selectOne(Class<T> type, Conditions conditions) {
+		TypedQuery<T> q = makeEntitySelect(type, conditions);
+		return (action) -> action.accept(q.getSingleResult());
+	}
+
+	private <T> EntityProcessor<T> selectFunc(Class<T> type, Conditions conditions) {
+		return select_(type, conditions, this::doProcessEach);
+	}
+	private <T> EntityProcessor<T> selectOneFunc(Class<T> type, Conditions conditions) {
+		return select_(type, conditions, (q, a) -> a.accept(q.getSingleResult()) );
+	}
+	private <T> EntityProcessor<T> select_(Class<T> type, Conditions conditions, BiConsumer<TypedQuery<T>, Consumer<T>> applier) {
+		TypedQuery<T> query = makeEntitySelect(type, conditions);
+		return (action) -> applier.accept(query, action);
+	}
+	// </editor-fold>
+
+	public void commonClean() {
+		TypedQuery<Word> q = makeEntitySelect(Word.class, (cb, root) -> {
+			Path<String> line = root.get(Word_.line);
+			return cb.like(line, "%→%");
+		});
+		doWordProcessing(q, (Word w) -> {
+			String[] parts = w.getLine().split("→");
+			String head = parts[0];
+			if (head.trim().isEmpty()) {
+				return;
+			}
+			if (head.lastIndexOf('(') > head.lastIndexOf(')')) {
+				return;
+			}
+			boolean saveTail = true;
+			if (saveTail) {
+				Word tail = w.splitRight(head.length() + 1);
+				w.updateLine(head.substring(0, head.length() - 1));
+				Bunch g = new Bunch(new Line(tail.x, tail.x + tail.len, tail.y));
+				g.page = w.getGroup().page;
+				g.setParent(w);
+				w.setDerived(g);
+				tail.setGroup(g);
+				em.persist(g);
+				em.persist(tail);
+				em.merge(w);
+			}
+		});
+	}
+
+	private void doWordProcessing(TypedQuery<Word> q, Consumer<Word> proc) {
+		em.getTransaction().begin();
+		List<Word> words = q.getResultList();
+		for (Word w : words) {
+			printWord(w, 1);
+			proc.accept(w);
+		}
+		em.getTransaction().commit();
+	}
+
+	public void showWordTree(int id) {
+		selectOne(Word.class, (cb, root) -> cb.equal(root.get("id"), id))
+		.process(w -> printWord(w, 0));
+	}
+
+	private void tabs(int tabs) {
+		for (int i = 0; i < tabs; i++) {
+			System.out.print('\t');
+		}
+	}
+
+	public void fixAlters() {
+		TypedQuery<Word> q = makeEntitySelect(Word.class, (cb, root) -> {
+			Path<String> line = root.get(Word_.line);
+			return cb.and(cb.like(line, "\u001b\u001f(%)_%"));
+		});
+		doWordProcessing(q, (Word w) -> {
+			Word tail = fixWord2(w);
+			if (tail != null) {
+				em.persist(tail);
+				em.merge(tail.getBase());
+			}
+		});
+	}
+
+	private Word fixWord2(Word word) {
+		String line = word.getLine();
+		String patt = "\u001b\u001f\\(|\\)\u001b\u001f";
+		String[] parts = line.split(patt);
+		String[] par = {parts[1], line.substring(line.indexOf(parts[2]))};
+		return fixWord_(word, par);
+	}
+
+	private Word fixWord(Word word) {
+		LineProcessor lp = new LineProcessor();
+		String[] parts = lp.splitAlterLinePrefix(word.getLine());
+		return fixWord_(word, parts);
+	}
+
+	private Word fixWord_(Word word, String[] parts) {
+		double cutLen = word.len * parts[0].length() / word.getLine().length();
+		double splitPos = word.x + cutLen;
+		Point groupLocation = new Point(splitPos, word.y);
+		Bunch derived = findNearestGroup(word, word.getGroup(), groupLocation, cutLen * 1.5);
+		int id = word.getId();
+		if (derived == null) {
+			switch (id) {
+				case 117370:
+				case 121137:
+				case 127042:
+				case 143699:
+					return null;
+				default:
+					derived.getClass();
+					return null;
+			}
+		} else {
+			Word extract = word.splitRight(parts[0].length());
+			extract.setGroup(derived);
+			return extract;
+		}
+	}
+
+	private Bunch findNearestGroup(Word word, Bunch group, Point groupLocation, double cutLen) {
+		Bunch[] derived = {null};
+		visitNearestNeighbours(word, group, (Word bw) -> {
+			Bunch cand = bw.getDerived();
+			if (cand == null) {
+				return false;
+			}
+			if (cand.getGroupLine().isCovered(groupLocation, cutLen)) {
+				derived[0] = cand;
+				return true;
+			} else {
+				derived[0] = findNearestGroup(word, cand, groupLocation, cutLen * 1.2);
+			}
+			return derived[0] != null;
+		});
+		return derived[0];
+	}
+
+    // <editor-fold defaultstate="collapsed" desc="Old parsers">                          
 	public void reparseWords() {
 		CriteriaQuery<Word> cq = em.getCriteriaBuilder().createQuery(Word.class);
 		cq.select(cq.from(Word.class));
@@ -235,118 +387,6 @@ public class DbRecordsParser implements DataProcessor {
 		if (!prepared.isEmpty()) {
 			saveWords(prepared);
 		}
-	}
-
-	private Word findRelatedWord(final Word noteword, final Bunch group, final Function<Word, Boolean> lineMatcher) {
-		Word[] result = {null};
-		visitNearestNeighbours(noteword, group, (Word bw) -> {
-			if (bw.y < noteword.y || bw.isDeprecated()) {
-				return false;
-			}
-			Bunch derived = bw.getDerived();
-			RuntimeException ex = null;
-			if (bw.x + bw.len / 1.5 < noteword.x - 6.5 || (derived != null && bw.x + bw.len * 0.8 > derived.getGroupLine().x1 + 4.0 && 0 >= derived.getGroupLine().compareTo(new Line(new Point(bw.x, bw.y), new Point(bw.x, bw.y + 9.0))))) {
-				ex = new IllegalStateException("Related word is out of bounds");
-			}
-			if (ex == null && !lineMatcher.apply(bw)) {
-				ex = new IllegalStateException("Related word is not the same", NON_MATCHING_LINE);
-			}
-			if (ex != null) {
-				if (bw.getDerived() != null) {
-					result[0] = findRelatedWord(noteword, bw.getDerived(), lineMatcher);
-				}
-				if (result[0] == null) {
-					throw ex;
-				}
-			} else {
-				result[0] = bw;
-			}
-			return result[0] != null;
-		});
-		return result[0];
-	}
-
-	private <T> void doProcessEach(TypedQuery<T> q, Consumer<T> proc) {
-		List<T> beans = q.getResultList();
-		for (T b : beans) {
-			em.getTransaction().begin();
-			proc.accept(b);
-			em.getTransaction().commit();
-		}
-	}
-
-	private void visitNearestNeighbours(Word word, Bunch group, Function<Word, Boolean> proc) {
-		NavigableSet<Word> neighbours = new TreeSet<>((Word w1, Word w2) -> (int) (5000 * (abs(word.y - w1.y) - abs(word.y - w2.y))));
-		neighbours.addAll(group.words);
-		neighbours.remove(word);
-		for (Word bw : neighbours) {
-			if (proc.apply(bw)) {
-				break;
-			}
-		}
-	}
-
-	private Bunch findNearestGroup(Word word, Bunch group, Point groupLocation, double cutLen) {
-		Bunch[] derived = {null};
-		visitNearestNeighbours(word, group, (Word bw) -> {
-			Bunch cand = bw.getDerived();
-			if (cand == null) {
-				return false;
-			}
-			if (cand.getGroupLine().isCovered(groupLocation, cutLen)) {
-				derived[0] = cand;
-				return true;
-			} else {
-				derived[0] = findNearestGroup(word, cand, groupLocation, cutLen * 1.2);
-			}
-			return derived[0] != null;
-		});
-		return derived[0];
-	}
-
-	private <T> TypedQuery<T> makeEntitySelect(Class<T> type, Conditions conditions) {
-		CriteriaBuilder cb = em.getCriteriaBuilder();
-		CriteriaQuery<T> cq = cb.createQuery(type);
-		Root<T> root = cq.from(type);
-		cq.select(root);
-		cq.where(conditions.make(cb, root));
-		return em.createQuery(cq);
-	}
-
-	private void tabs(int tabs) {
-		for (int i = 0; i < tabs; i++) {
-			System.out.print('\t');
-		}
-	}
-
-	private Word fixWord_(Word word, String[] parts) {
-		double cutLen = word.len * parts[0].length() / word.getLine().length();
-		double splitPos = word.x + cutLen;
-		Point groupLocation = new Point(splitPos, word.y);
-		Bunch derived = findNearestGroup(word, word.getGroup(), groupLocation, cutLen * 1.5);
-		int id = word.getId();
-		if (derived == null) {
-			switch (id) {
-				case 117370:
-				case 121137:
-				case 127042:
-				case 143699:
-					return null;
-				default:
-					derived.getClass();
-					return null;
-			}
-		} else {
-			Word extract = word.splitRight(parts[0].length());
-			extract.setGroup(derived);
-			return extract;
-		}
-	}
-
-	private Word fixWord(Word word) {
-		LineProcessor lp = new LineProcessor();
-		String[] parts = lp.splitAlterLinePrefix(word.getLine());
-		return fixWord_(word, parts);
 	}
 
 	public void findComments() {
@@ -404,6 +444,7 @@ public class DbRecordsParser implements DataProcessor {
 			LOG.log(Level.SEVERE, null, ex);
 		}
 	}
+// </editor-fold>
 
 	private void relinkDerives(Word parent, Word child) {
 		Bunch pder = parent.getDerived();
@@ -446,23 +487,6 @@ public class DbRecordsParser implements DataProcessor {
 		}
 	}
 
-	private Word fixWord2(Word word) {
-		String line = word.getLine();
-		String patt = "\u001b\u001f\\(|\\)\u001b\u001f";
-		String[] parts = line.split(patt);
-		String[] par = {parts[1], line.substring(line.indexOf(parts[2]))};
-		return fixWord_(word, par);
-	}
-
-	private void doWordProcessing(TypedQuery<Word> q, Consumer<Word> proc) {
-		em.getTransaction().begin();
-		List<Word> words = q.getResultList();
-		for (Word w : words) {
-			printWord(w, 1);
-			proc.accept(w);
-		}
-		em.getTransaction().commit();
-	}
 	private Comparator<Word> bunchSorter = (Word wl, Word wr) -> (int) ((wr.y - wl.y) * 100);
 
 	static String cleanLine(String orig) {
