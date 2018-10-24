@@ -10,13 +10,8 @@
 
 package net.elliptica.svg;
 
-import com.ibm.icu.text.Transliterator;
-import java.io.File;
 import java.io.IOException;
-import java.util.Enumeration;
 import java.util.stream.Stream;
-import static net.elliptica.svg.SVGMetaPostTest.document;
-import static net.elliptica.svg.SVGMetaPostTest.engine;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.junit.BeforeClass;
 import org.junit.Test;
@@ -25,13 +20,13 @@ import org.junit.Test;
  *
  * @author Антон Астафьев <anton@astafiev.me> (Anton Astafiev)
  */
-public class JPATests {
+public class DbRecordsParserTest {
 
 	@BeforeClass
 	public static void setUpClass() throws IOException {
 		MorphemStreamEngine.PRINT_RESULT = true;
 		MorphemStreamEngine.LOAD_DB = true;
-		engine = new MorphemStreamEngine(null);
+		engine = new DbRecordsParser();
 	}
 
 	@Test
