@@ -9,12 +9,9 @@
  */
 package net.elliptica.svg;
 
-import com.sun.xml.rpc.processor.util.IndentingWriter;
 import java.awt.geom.Point2D;
-import java.io.BufferedWriter;
 import java.io.File;
 import java.io.IOException;
-import java.io.OutputStreamWriter;
 import java.io.PrintStream;
 import java.util.HashMap;
 import java.util.Map;
@@ -56,8 +53,6 @@ import javax.persistence.Persistence;
 import javax.persistence.TypedQuery;
 import javax.persistence.criteria.CriteriaBuilder;
 import javax.persistence.criteria.CriteriaQuery;
-import javax.persistence.criteria.Expression;
-import javax.persistence.criteria.Join;
 import javax.persistence.criteria.Path;
 import javax.persistence.criteria.Predicate;
 import javax.persistence.criteria.Root;
@@ -764,13 +759,13 @@ public class MorphemStreamEngine extends PDFGraphicsStreamEngine implements Data
 		em.getTransaction().commit();
 	}
 
-	private <T> void doProcessing(TypedQuery<T> q, Consumer<T> proc) {
-		em.getTransaction().begin();
+	private <T> void doProcessEach(TypedQuery<T> q, Consumer<T> proc) {
 		List<T> beans = q.getResultList();
 		for (T b: beans) {
+			em.getTransaction().begin();
 			proc.accept(b);
+			em.getTransaction().commit();
 		}
-		em.getTransaction().commit();
 	}
 
 	@Override
@@ -925,50 +920,74 @@ public class MorphemStreamEngine extends PDFGraphicsStreamEngine implements Data
 	@Override
 	public void fixHyphens() {
 		Integer[] brokenGroups = {
-			118, 10837, 16917, 23790, 29134, 34444, 47372, 58121, 64154, 71202,
-			12968, 57982, 6834, 6838
+			
+
 		};
+		// fixed: 64154, 58121, 47372, 29134, 12968, 16917, 10837, 23790, 6834, 6838, 57982
 		TypedQuery<Bunch> q = makeEntitySelect(Bunch.class, (cb,root) -> {
 			Path<Long> grId = root.get(Bunch_.id);
 			return grId.in(brokenGroups);
 		});
-		doProcessing(q, gr -> {
-			String parLn = gr.parent == null ? "---------" : cleanLine(gr.parent.getLine());
-			for (Word w: gr.words) {
+		doProcessEach(q, gr -> {
+			String original = gr.parent == null ? null : cleanLine(gr.parent.getLine());
+			NavigableSet<Word> words = new TreeSet<>((l,r) -> (int)(100*(l.y - r.y)));
+			words.addAll(gr.words);
+			for (Word w: words) {
+				if (w.isDeprecated()) {
+					continue;
+				}
 				String chLn = cleanLine(w.getLine());
-				ParentSubLineMatcher matcher = new ParentSubLineMatcher(chLn, w);
+				ParentSubLineMatcher matcher = new ParentSubLineMatcher(original, chLn, w);
+				String parLn = original == null ? 
+					"---------" : original;
 
 				// common prefix
 				int prefLen;
 				int minLen = Math.min(parLn.length(),chLn.length());
 				for (prefLen=0; prefLen<minLen && parLn.charAt(prefLen)==chLn.charAt(prefLen); prefLen++);
 
-				if (prefLen < (minLen+1)/2) {
-					Word target = findRelatedWord(w, gr, matcher);
-					target.updateLine(target.getLine() + w.getLine());
-					relinkDerives(target, w);
-					w.deprecate();
+				int maxLen = Math.max(parLn.length(),chLn.length());
+				if (prefLen < (minLen+maxLen*2/3)/4) {
+					try{
+						Word target = findRelatedWord(w, gr, matcher);
+						if (target == null) {
+							continue;
+						}
+						target.updateLine(target.getLine() + w.getLine());
+						relinkDerives(target, w);
+						w.deprecate();
+					} catch (IllegalStateException ise) {
+						if (ise.getCause() == NON_MATCHING_LINE) {
+							continue;
+						}
+						throw ise;
+					}
 				}
 			}
 		});
 	}
 
 	private class ParentSubLineMatcher implements Function<Word, Boolean> {
+		private final String parentLine;
 		private final String lostLine;
 		private final Word lostWord;
 		private LineProcessor lp;
 
-		public ParentSubLineMatcher(String lostLine, Word lostWord) {
+		public ParentSubLineMatcher(String parentLine, String lostLine, Word lostWord) {
+			this.parentLine = parentLine;
 			this.lostLine = lostLine;
 			this.lostWord = lostWord;
 		}
 
 		@Override
 		public Boolean apply(Word t) {
+			if (t.y - lostWord.y > 15.){
+				return false;
+			}
 			String upper = cleanLine(t.getLine());
 			boolean toMerge = true;
 			// check length first
-			toMerge = toMerge && upper.length() > lostLine.length() / 2;
+			toMerge = toMerge && upper.length()+1 >= lostLine.length() * 2/3;
 
 			// check for substrings
 			Set<String> substrings = longestCS(upper, lostLine);
@@ -995,7 +1014,7 @@ public class MorphemStreamEngine extends PDFGraphicsStreamEngine implements Data
 						continue;
 					}
 
-					table[i][j] = (i+j == 0) ? 1 : 1 + table[i - 1][j - 1];
+					table[i][j] = (i*j == 0) ? 1 : 1 + table[i - 1][j - 1];
 					if (table[i][j] > longest) {
 						longest = table[i][j];
 						result.clear();
@@ -1075,6 +1094,8 @@ public class MorphemStreamEngine extends PDFGraphicsStreamEngine implements Data
 			em.merge(parent);
 		});
 	}
+	
+	private static Exception NON_MATCHING_LINE = new Exception("Lines do not match");
 
 	class EqualLineMatcher implements Function<Word, Boolean> {
 		public EqualLineMatcher(String note, Word noteword) {
@@ -1127,7 +1148,7 @@ public class MorphemStreamEngine extends PDFGraphicsStreamEngine implements Data
 			}
 			Bunch derived = bw.getDerived();
 			RuntimeException ex = null;
-			if (bw.x+bw.len/2 < noteword.x-6.5 ||
+			if (bw.x+bw.len/1.5 < noteword.x-6.5 ||
 					(
 						derived!=null && 
 						bw.x+bw.len*0.8 > derived.getGroupLine().x1+4. &&
@@ -1136,8 +1157,8 @@ public class MorphemStreamEngine extends PDFGraphicsStreamEngine implements Data
 			) {
 				ex = new IllegalStateException("Related word is out of bounds");
 			}
-			if (ex == null && lineMatcher.apply(bw)) {
-				ex = new IllegalStateException("Related word is not the same");
+			if (ex == null && !lineMatcher.apply(bw)) {
+				ex = new IllegalStateException("Related word is not the same", NON_MATCHING_LINE);
 			}
 			if (ex != null) {
 				if (bw.getDerived() != null) {
