@@ -10,33 +10,22 @@
 
 package net.elliptica.svg;
 
-import java.io.PrintStream;
+import java.util.function.Function;
 
 /**
  *
  * @author Антон Астафьев <anton@astafiev.me> (Anton Astafiev)
  */
-public class FormatStream extends PrintStream {
-	LineProcessor lp = new LineProcessor();
+public class SimpleCloseParentMatcher implements Function<Word, Boolean> {
+	private final Word origin;
 
-	public FormatStream() {
-		super(System.out);
-		lp.setFormatType(LineProcessor.FormatType.Console);
-	}
-	
-	private String format(String param) {
-		if (param.indexOf('\u001b')<0){
-			return param;
-		}
-		if (param.indexOf('\u001b')>0){
-			param = "" + param;
-		}
-		return lp.format(param);
+	public SimpleCloseParentMatcher(Word origin) {
+		this.origin = origin;
 	}
 
 	@Override
-	public void print(String s) {
-		super.print(format(s));
+	public Boolean apply(Word cand) {
+		return (cand.y - origin.y < 19.);
 	}
 
 }

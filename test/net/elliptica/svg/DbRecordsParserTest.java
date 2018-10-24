@@ -36,6 +36,12 @@ public class DbRecordsParserTest {
 	}
 
 	@Test
+	public void testMoveComments(){
+		System.out.println("moveComments");
+		engine.moveComments();
+	}
+
+	@Test
 	public void testFixAlters(){
 		System.out.println("fixAlters");
 		engine.fixAlters();
@@ -101,6 +107,6 @@ System.out.print(
 	}
 
 	static PDDocument document;
-	static DataProcessor engine;
+	static DbRecordsParser engine;
 
 }

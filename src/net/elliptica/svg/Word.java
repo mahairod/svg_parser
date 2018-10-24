@@ -131,6 +131,10 @@ public class Word implements Comparable<Word>, Serializable {
 		return id;
 	}
 
+	public String getNotes() {
+		return notes;
+	}
+
 	public void setNotes(String notes) {
 		this.notes = notes;
 	}
@@ -145,7 +149,7 @@ public class Word implements Comparable<Word>, Serializable {
 
 	@Override
 	public String toString() {
-		String main = "{" + line + '}' + Integer.toString((int)x) + "/" + Integer.toString((int)y);
+		String main = "{" + line + '}' + (int)x + "/" + (int)y;
 		if (base==null){
 			return main;
 		}

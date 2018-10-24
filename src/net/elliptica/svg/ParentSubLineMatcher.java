@@ -32,11 +32,11 @@ class ParentSubLineMatcher implements Function<Word, Boolean> {
 	}
 
 	@Override
-	public Boolean apply(Word t) {
-		if (t.y - lostWord.y > 15.) {
+	public Boolean apply(Word cand) {
+		if (cand.y - lostWord.y > 15.) {
 			return false;
 		}
-		String upper = cleanLine(t.getLine());
+		String upper = cleanLine(cand.getLine());
 		boolean toMerge = true;
 		// check length first
 		toMerge = toMerge && upper.length() + 1 >= lostLine.length() * 2 / 3;

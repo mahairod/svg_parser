@@ -118,6 +118,33 @@ public class DbRecordsParser implements DataProcessor {
 		});
 	}
 
+	public void moveComments() {
+		selectFunc(Word.class, (cb, root) -> cb.and(
+			root.get(Word_.deprecated).isNull(),
+			cb.like(root.get(Word_.line), "(%)")
+		)).process(w->{
+			ps.println("______________________________________________________________");
+			printWord(w, 0, 1);
+			Word parent = findRelatedWord(w, w.getGroup(), new SimpleCloseParentMatcher(w));
+			if (parent != null) {
+				if (parent.getNotes()!=null) {
+					ps.println("Has note already: " + parent.getNotes());
+				}
+				ps.println("Goes to: ");
+				printWord(parent, 1, 1);
+				String ln = w.getLine().replaceFirst("^", "");
+				if (parent.getNotes()!=null) {
+					String oldNote = parent.getNotes();
+					ln = oldNote + "# " + ln;
+				}
+				parent.setNotes(ln);
+				w.deprecate();
+			} else {
+				ps.println("Not found");
+			}
+		});
+	}
+
 	private Word findRelatedWord(final Word noteword, final Bunch group, final Function<Word, Boolean> lineMatcher) {
 		Word[] result = {null};
 		visitNearestNeighbours(noteword, group, (Word bw) -> {
@@ -148,7 +175,7 @@ public class DbRecordsParser implements DataProcessor {
 	}
 
 	private void visitNearestNeighbours(Word word, Bunch group, Function<Word, Boolean> proc) {
-		NavigableSet<Word> neighbours = new TreeSet<>((Word w1, Word w2) -> (int) (5000 * (abs(word.y - w1.y) - abs(word.y - w2.y))));
+		NavigableSet<Word> neighbours = new TreeSet<>((Word w1, Word w2) -> (int) (5e5 * (abs(word.y - w1.y) - abs(word.y - w2.y))));
 		neighbours.addAll(group.words);
 		neighbours.remove(word);
 		for (Word bw : neighbours) {
@@ -464,19 +491,26 @@ public class DbRecordsParser implements DataProcessor {
 	}
 
 	private void printWord(Word root, int tabs) {
+		printWord(root, tabs, Integer.MAX_VALUE);
+	}
+	private void printWord(Word root, int tabs, int depth) {
+		if (tabs < 1) {
+			ps.print("p." + root.getGroup().page + " ");
+		}
 		tabs(tabs);
-		ps.print(root.getId());
-		ps.print(":  " + Integer.valueOf((int) root.x) + " = ");
-		ps.println(root.getLine());
+		ps.println(root);
+		
+		depth--;
+		if (depth<1) return;
 		if (root.getDerived() == null) {
 			return;
 		}
 		tabs(tabs + 1);
-		ps.println("\t=== " + root.getDerived().id);
+		ps.println("==== " + root.getDerived().id);
 		Set<Word> words = new TreeSet<>((Word wl, Word wr) -> -(int) (wl.y - wr.y));
 		words.addAll(root.getDerived().words);
 		for (Word w : words) {
-			printWord(w, tabs + 2);
+			printWord(w, tabs + 1, --depth);
 		}
 	}
 
