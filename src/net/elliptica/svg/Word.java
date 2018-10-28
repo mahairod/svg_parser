@@ -13,10 +13,12 @@ package net.elliptica.svg;
 import java.io.Serializable;
 import javax.persistence.CascadeType;
 import javax.persistence.Column;
+import javax.persistence.Convert;
 import javax.persistence.Entity;
 import javax.persistence.FetchType;
 import javax.persistence.Id;
 import javax.persistence.JoinColumn;
+import javax.persistence.Lob;
 import javax.persistence.ManyToOne;
 import javax.persistence.OneToOne;
 import javax.persistence.Table;
@@ -24,6 +26,9 @@ import javax.persistence.Transient;
 import javax.xml.bind.annotation.XmlElement;
 import javax.xml.bind.annotation.XmlID;
 import javax.xml.bind.annotation.XmlIDREF;
+import net.elliptica.ling.FlagsConveter;
+import net.elliptica.ling.PartOfSpeach;
+import net.elliptica.ling.PoSConverter;
 
 /**
  *
@@ -32,6 +37,7 @@ import javax.xml.bind.annotation.XmlIDREF;
 @Entity
 @Table
 public class Word implements Comparable<Word>, Serializable {
+	static int SEQUENCE = 1001990;
 
 	public Word() {
 		this.id = 0;
@@ -77,6 +83,7 @@ public class Word implements Comparable<Word>, Serializable {
 
 //	@Transient
 	@OneToOne(fetch = FetchType.LAZY)
+	@JoinColumn(name = "derived_id", referencedColumnName = "id")
 	private Bunch derived;
 
 	@Transient
@@ -84,6 +91,7 @@ public class Word implements Comparable<Word>, Serializable {
 
 //	@Transient
 	@ManyToOne(cascade = CascadeType.PERSIST, fetch = FetchType.LAZY)
+	@JoinColumn(name = "bunch_id", referencedColumnName = "id")
 	private Bunch bunch;
 
 	@Column
@@ -95,6 +103,19 @@ public class Word implements Comparable<Word>, Serializable {
 	final boolean hyphen;
 	@Column(nullable = true)
 	private Boolean deprecated;
+
+	private String alternation;
+
+	@Column(name = "alt_rest")
+	private String altRest;
+
+	private Character version;
+
+	@Convert(converter = FlagsConveter.class)
+	private Boolean[] flags;
+
+	@Convert(converter = PoSConverter.class)
+	private PartOfSpeach pos;
 
 //	@XmlID
 	@XmlElement
@@ -114,7 +135,7 @@ public class Word implements Comparable<Word>, Serializable {
 		this.line = line;
 	}
 
-	public void setText(String text) {
+	void setText(String text) {
 		this.text = text;
 	}
 
@@ -135,7 +156,7 @@ public class Word implements Comparable<Word>, Serializable {
 		return notes;
 	}
 
-	public void setNotes(String notes) {
+	void setNotes(String notes) {
 		this.notes = notes;
 	}
 
@@ -150,10 +171,13 @@ public class Word implements Comparable<Word>, Serializable {
 	@Override
 	public String toString() {
 		String main = "{" + line + '}' + (int)x + "/" + (int)y;
-		if (base==null){
-			return main;
+		if (base!=null){
+			main = main + " -> " + base.toString();
 		}
-		return main + " -> " + base.toString();
+		if (derived!=null){
+			main = main + " --> " + derived.toString();
+		}
+		return main;
 	}
 
 	public String toShortString() {
@@ -193,11 +217,15 @@ public class Word implements Comparable<Word>, Serializable {
 		return rWord;
 	}
 
-	private Point getPoint(){
+	public Point getPoint(){
 		return new Point(x, y);
 	}
 
-	Bunch getGroup() {
+	public Point getMiddleEnd(){
+		return new Point(x + len, y - 4.5);
+	}
+
+	public Bunch getGroup() {
 		return bunch;
 	}
 
@@ -205,14 +233,64 @@ public class Word implements Comparable<Word>, Serializable {
 		return base;
 	}
 
-	public Bunch setDerived(Bunch derived) {
+	Bunch setDerived(Bunch derived) {
 		Bunch old = this.derived;
+		if (old != null && old != derived ) {
+			Word p = old.setParent(null);
+			if (p!= null){
+				p.derived = null;
+			}
+		}
 		this.derived = derived;
+		if (derived != null) {
+			Word p = this.derived.setParent(this);
+			if (p!= null){
+				p.derived = null;
+			}
+		}
 		return old;
 	}
 
-	static int SEQUENCE = 1001990;
-
 	private static final long serialVersionUID = 1L;
+
+	public String getText() {
+		return text;
+	}
+
+	public String getAlternation() {
+		return alternation;
+	}
+
+	void setAlternation(String alternation) {
+		this.alternation = alternation;
+	}
+
+	public String getAltRest() {
+		return altRest;
+	}
+
+	void setAltRest(String altRest) {
+		this.altRest = altRest;
+	}
+
+	public Character getVersion() {
+		return version;
+	}
+
+	void setVersion(Character version) {
+		this.version = version;
+	}
+
+	public Boolean[] getFlags() {
+		return flags;
+	}
+
+	void setFlags(Boolean[] flags) {
+		this.flags = flags;
+	}
+
+	public PartOfSpeach getPos() {
+		return pos;
+	}
 
 }

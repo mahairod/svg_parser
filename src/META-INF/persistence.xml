@@ -4,13 +4,15 @@
     <provider>org.eclipse.persistence.jpa.PersistenceProvider</provider>
     <class>net.elliptica.svg.Word</class>
     <class>net.elliptica.svg.Bunch</class>
+	<class>net.elliptica.ling.PoSConverter</class>
+	<class>net.elliptica.ling.FlagsConveter</class>
     <properties>
       <property name="javax.persistence.jdbc.url" value="jdbc:postgresql://localhost:5432/spyvk"/>
       <property name="javax.persistence.jdbc.user" value="spyvk"/>
       <property name="javax.persistence.jdbc.driver" value="org.postgresql.Driver"/>
       <property name="javax.persistence.jdbc.password" value="numlltip"/>
       <property name="javax.persistence.schema-generation.database.action" value="none"/>
-      <property name="eclipselink.logging.level" value="OFF"/>
+      <property name="eclipselink.logging.level" value="INFO"/>
       <property name="eclipselink.weaving" value="static"/>
     </properties>
   </persistence-unit>
