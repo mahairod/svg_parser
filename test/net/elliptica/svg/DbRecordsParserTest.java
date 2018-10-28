@@ -109,4 +109,10 @@ System.out.print(
 	static PDDocument document;
 	static DbRecordsParser engine;
 
+	@Test
+	public void testFixWrongLinks() {
+		System.out.println("fixWrongLinks");
+		engine.fixWrongLinks();
+	}
+
 }

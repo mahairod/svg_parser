@@ -12,12 +12,15 @@ package net.elliptica.svg;
 
 import java.io.Serializable;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
 import javax.persistence.CascadeType;
 import javax.persistence.Column;
 import javax.persistence.Entity;
 import javax.persistence.FetchType;
+import javax.persistence.GeneratedValue;
+import javax.persistence.GenerationType;
 import javax.persistence.Id;
 import javax.persistence.OneToMany;
 import javax.persistence.OneToOne;
@@ -39,13 +42,15 @@ public class Bunch implements Serializable, Comparable<Bunch> {
 	@Id
 	@XmlID
 	@XmlElement
-	protected final int id;
+	@GeneratedValue(strategy = GenerationType.IDENTITY)
+	@Column(nullable = false)
+	protected Integer id;
 	
 	@Transient
 	private final Line groupLine;
 
 //	@XmlJavaTypeAdapter(type=long.class, value=WSLongAdapter.class)
-	public int getId() {
+	public Integer getId() {
 		return id;
 	}
 
@@ -68,7 +73,7 @@ public class Bunch implements Serializable, Comparable<Bunch> {
 	private final double x, y, height, width;
 
 	public Bunch() {
-		id = 0;
+//		id = 0;
 		words = null;
 		groupLine = null;
 		root = false;
@@ -76,7 +81,7 @@ public class Bunch implements Serializable, Comparable<Bunch> {
 	}
 
 	public Bunch(Line groupLine) {
-		this.id = SEQUENCE++;
+//		this.id = SEQUENCE++;
 		this.groupLine = groupLine;
 		this.words = new HashSet<>();
 		root = groupLine.isRoot();
@@ -109,6 +114,10 @@ public class Bunch implements Serializable, Comparable<Bunch> {
 		return root;
 	}
 
+	public Set<Word> getWords() {
+		return Collections.unmodifiableSet(words);
+	}
+
 	@Override
 	public String toString() {
 		Object[] wordArr = words.stream().map(Word::toShortString).toArray();
@@ -122,7 +131,7 @@ public class Bunch implements Serializable, Comparable<Bunch> {
 		return new Line(new Point(x, y), new Point(x, y+height));
 	}
 	
-	private static int SEQUENCE = 1001003;
+	static int SEQUENCE = 1001010;
 
 	private static final long serialVersionUID = 1L;
 

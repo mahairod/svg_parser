@@ -23,6 +23,7 @@ import java.util.regex.Pattern;
 import javax.persistence.EntityManager;
 import javax.persistence.EntityManagerFactory;
 import javax.persistence.Persistence;
+import javax.persistence.RollbackException;
 import javax.persistence.TypedQuery;
 import javax.persistence.criteria.CriteriaBuilder;
 import javax.persistence.criteria.CriteriaQuery;
@@ -40,6 +41,15 @@ public class DbRecordsParser implements DataProcessor {
 
 	public DbRecordsParser() {
 		initJPA();
+	}
+	
+	public List<Word> getWordsFromPage(int page) {
+		List<Word> result = new ArrayList<>();
+		selectList(Word.class, 1000, (cb, root) -> cb.and(
+			cb.equal(root.get(Word_.bunch).get(Bunch_.page), page),
+			root.get(Word_.deprecated).isNull()
+		)).accept(lst -> result.addAll(lst));
+		return result;
 	}
 
 	public void deleteNotes() {
@@ -118,6 +128,28 @@ public class DbRecordsParser implements DataProcessor {
 		});
 	}
 
+	public void countLinkedWords() {
+		select(Bunch.class, (cb, root) -> cb.isTrue(root.get(Bunch_.root)
+		)).process(g-> {
+		});
+	}
+
+	public void fixWrongLinks() {
+		RuntimeCode.em = em;
+		select(Word.class, (cb, root) -> cb.equal(
+			root.get(Word_.bunch),
+			root.get(Word_.derived)
+		)).process(w->{
+			Bunch g = w.getGroup();
+			int page = g.page;
+			Bunch der = w.getDerived();
+			int curFunc = 0;
+			do {
+				curFunc = RuntimeCode.wordProcessors[curFunc].apply(w);
+			} while(curFunc>=0);
+		});
+	}
+
 	public void moveComments() {
 		selectFunc(Word.class, (cb, root) -> cb.and(
 			root.get(Word_.deprecated).isNull(),
@@ -193,6 +225,53 @@ public class DbRecordsParser implements DataProcessor {
 			proc.accept(b);
 			em.getTransaction().commit();
 		}
+	}
+
+	public void doMove(Word src, Word dst) {
+		em.getTransaction().begin();
+		src.setGroup(dst.getGroup());
+	}
+	public void doGroup(Word src, Word dst) {
+		SingleWordBunch swb = new SingleWordBunch(src);
+		Bunch gr = swb.getBunch();
+		em.persist(gr);
+		doLink(src, dst);
+	}
+	public boolean doLink(Word src, Word dst) {
+		em.getTransaction().begin();
+		dst.setDerived(src.getGroup());
+		LOG.log(Level.INFO, "Link done: " + dst.getDerived());
+		return false;
+	}
+	public boolean doDelink(Word src, Word dst) {
+		em.getTransaction().begin();
+		dst.setDerived(null);
+		LOG.log(Level.INFO, "Delink done: " + dst.getDerived());
+		return false;
+	}
+	public boolean doDestroy(Word dst) {
+		em.getTransaction().begin();
+		dst.deprecate();
+		LOG.log(Level.INFO, "Destroy done: " + dst);
+		return false;
+	}
+	public void doCommit() throws RollbackException {
+		em.getTransaction().commit();
+		LOG.log(Level.INFO, "Saved db state");
+	}
+	public void doCancel() throws RollbackException {
+		try {
+			em.getTransaction().rollback();
+		} catch (IllegalStateException ex) {
+			LOG.log(Level.SEVERE, "Seems transaction is not in progress?", ex);
+		} finally {
+			em.clear();
+		}
+	}
+	public void doFlush() throws RollbackException {
+		em.clear();
+		em.getEntityManagerFactory().getCache().evictAll();
+		LOG.log(Level.INFO, "Flushed db state");
 	}
 
 	private <T> TypedQuery<T> makeEntitySelect(Class<T> type, Conditions conditions) {
