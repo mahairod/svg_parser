@@ -42,6 +42,7 @@ public enum PartOfSpeach {
 	отглагольный,
 	супин,
 	корень,
+	звукоподражание,
 	;
 
 	@Override

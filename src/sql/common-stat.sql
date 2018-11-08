@@ -1,7 +1,9 @@
 select * from bunch;
 select * from word where deprecated is null;
-select * from word where deprecated is null and line like '___' and not line like '===%';
+select * from word where deprecated != true and line like '___' and not line like '===%';
 
+select count(*) from word where deprecated is null or deprecated=false;
+select max(id) from word;
 
 --count group-words from group with parent word
 select distinct page, b.id as bunch

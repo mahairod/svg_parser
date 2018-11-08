@@ -23,17 +23,17 @@ import org.postgresql.util.PGobject;
  * @автор Антон Александрович Астафьев {@буквально <anton@astafiev.me>} (Anton Astafiev)
  */
 @Converter
-public class FlagsConveter implements AttributeConverter<Boolean[], Object> {
+public class FlagsConveter implements AttributeConverter<Short, Object> {
 
 	@Override
-	public Object convertToDatabaseColumn(Boolean[] атрибут) {
+	public Object convertToDatabaseColumn(Short атрибут) {
 		if (атрибут == null){
 			return null;
 		}
 		PGobject зн = new PGobject();
 		try {
-			зн.setType("bit(16)[]");
-			зн.setValue(атрибут[0] ? "1" : "0");
+			зн.setType("bit(16)");
+			зн.setValue(атрибут.toString());
 		} catch (SQLException ex) {
 			ЖУРНАЛ.log(Level.SEVERE, null, ex);
 		}
@@ -41,12 +41,12 @@ public class FlagsConveter implements AttributeConverter<Boolean[], Object> {
 	}
 
 	@Override
-	public Boolean[] convertToEntityAttribute(Object данныеБД) {
+	public Short convertToEntityAttribute(Object данныеБД) {
 		if (данныеБД instanceof PGobject){
 			String val = ((PGobject)данныеБД).getValue();
-			return new Boolean[] {"{1}".equals(val)};
-		} else if (данныеБД instanceof Boolean[]){
-			return (Boolean[]) данныеБД;
+			return Short.valueOf(val);
+		} else if (данныеБД instanceof Short){
+			return (Short) данныеБД;
 		} else {
 			return null;
 		}

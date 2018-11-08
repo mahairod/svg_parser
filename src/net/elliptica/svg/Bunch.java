@@ -120,8 +120,9 @@ public class Bunch implements Serializable, Comparable<Bunch> {
 
 	@Override
 	public String toString() {
-		Object[] wordArr = words.stream().map(Word::toShortString).toArray();
-		return "WG{" + "line=" + groupLine + ", " + wordArr.length + " words=" + Arrays.toString(wordArr) + '}';
+		Object[] wordArr = words.stream().filter(w-> !w.isDeprecated()).map(Word::toShortString).toArray();
+		return "WG{" + "id=" + getId()+ ", " + wordArr.length + " words=" + Arrays.toString(wordArr) + '}';
+//		return "WG{" + "line=" + getGroupLine() + ", " + wordArr.length + " words=" + Arrays.toString(wordArr) + '}';
 	}
 
 	Line getGroupLine() {

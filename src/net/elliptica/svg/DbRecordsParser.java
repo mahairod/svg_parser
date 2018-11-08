@@ -20,6 +20,7 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 import javax.persistence.EntityManager;
 import javax.persistence.EntityManagerFactory;
 import javax.persistence.Persistence;
@@ -27,6 +28,7 @@ import javax.persistence.RollbackException;
 import javax.persistence.TypedQuery;
 import javax.persistence.criteria.CriteriaBuilder;
 import javax.persistence.criteria.CriteriaQuery;
+import javax.persistence.criteria.Expression;
 import javax.persistence.criteria.Path;
 import javax.persistence.criteria.Predicate;
 import javax.persistence.criteria.Root;
@@ -47,7 +49,9 @@ public class DbRecordsParser implements DataProcessor {
 		List<Word> result = new ArrayList<>();
 		selectList(Word.class, 1000, (cb, root) -> cb.and(
 			cb.equal(root.get(Word_.bunch).get(Bunch_.page), page),
-			root.get(Word_.deprecated).isNull()
+			cb.or(root.get(Word_.deprecated).isNull(),
+				cb.equal(root.get(Word_.deprecated), false)
+			)
 		)).accept(lst -> result.addAll(lst));
 		return result;
 	}
@@ -129,9 +133,305 @@ public class DbRecordsParser implements DataProcessor {
 	}
 
 	public void countLinkedWords() {
-		select(Bunch.class, (cb, root) -> cb.isTrue(root.get(Bunch_.root)
-		)).process(g-> {
+		selectList(Bunch.class, 1000, (cb, root) -> cb.isTrue(root.get(Bunch_.root))
+		).accept(lst -> {
+			for (Bunch g: lst) {
+				for (Word w: g.words) {
+					visitLinkedWord(w);
+				}
+			}
 		});
+		ps.println("Accessible words: " + totalLeaves);
+	}
+	
+	private int totalLeaves = 0;
+
+	private void visitLinkedWord(Word root) {
+		if (!root.isDeprecated()) {
+			totalLeaves++;
+		}
+		if (root.getDerived() == null) {
+			return;
+		}
+		for (Word w: root.getDerived().words) {
+			visitLinkedWord(w);
+		}
+	}
+
+	public void showFlags() {
+		selectList(Word.class, 5000, (cb, root) -> cb.and(
+			root.get(Word_.flags).isNotNull()
+		)).accept(lst -> {
+			lst.getClass();
+		});
+	}
+
+	public boolean doMergeWords(Word src, Word dst){
+		em.getTransaction().begin();
+		dst.mergeWith(src);
+		src.deprecate();
+		return true;
+	}
+	
+	static class Alters {
+		public Alters(String alts, String old, String novel) {
+			this.alts = alts;
+			this.old = old;
+			this.novel = novel;
+			oldPatt = Pattern.compile(old);
+			novelPatt = Pattern.compile(novel);
+		}
+		
+		void setDerivedAlters(String derivedAlts) {
+			novelPattExt = "(" + derivedAlts + "|)";
+		}
+
+		@Override
+		public boolean equals(Object obj) {
+			Alters op = (Alters) obj;
+			return (
+				novelPatt.matcher(op.novel).matches() ||
+				op.novelPattExt!=null && Pattern.compile(novel + op.novelPattExt).matcher(op.novel).matches()
+			) && oldPatt.matcher(op.old).matches();
+		}
+		final String alts;
+		private final String old;
+		private final String novel;
+		private final Pattern oldPatt;
+		private final Pattern novelPatt;
+		private String novelPattExt;
+	}
+
+	private Alters extractAlters(Word w) {
+		String alter = w.getAltRest();
+		Matcher m = ALTERN_PATT.matcher(alter);
+		String old = "";
+		String novel = "";
+		String alternation = null;
+		while (m.find()) {
+			String l = m.group(1);
+			String r = m.group(3);
+			String lr = l+r;
+			if (alternation==null) {
+				alternation = "";
+			} else {
+				alternation = alternation + ":";
+			}
+			alternation += l + "-" + r;
+			if ("кч".equals(lr)) {
+				r = "[ое]?" + r;
+			} else if ("оа".equals(lr)) {
+				r += "г?";
+			} else if ("ео".equals(lr)) {
+				r = "[оё][тк]?";
+			} else if ("ио".equals(lr)) {
+				r = "[оё]т?";
+			} else if ("ое".equals(lr)) {
+				l = "е?[оё]к?";
+			} else if ("аим".equals(lr)) {
+				l = "[ая]";
+			}
+			old += l;
+			novel += r;
+		}
+		if (old.length()<2) {
+			old = "[а-ё]?" + old + "[тхс]?";
+		}
+		return new Alters(alternation, old, novel);
+	}
+
+	private final String pattStr = "(?:черед.|; |, |,|)(?:|)([а-ё]+)(?:(|)|)(?:–|-)(?:|)([а-ё]+)";
+	final Pattern ALTERN_PATT = Pattern.compile(pattStr);
+	private int failCount = 0;
+
+	public void mergeIsolatedAlters(){
+		Function<Word, String> alterLocFun =
+				word -> Arrays.asList(word.getLine().split("\u001b")).stream()
+						.filter(p->p.startsWith("\u001c"))
+						.map(p -> p.substring(1).replace("´", ""))
+						.reduce((l, r) -> l+r).orElse("");
+		select(Word.class, (cb, root) -> cb.and(
+			cb.like(root.get(Word_.line), "==="),
+			root.get(Word_.deprecated).isNull()
+		)).process(w -> {
+			int page = w.getGroup().page;
+			ps.println("Processing " + w.toShortString().replace("\n", "") + " with " + w.getAltRest() + " \u001b\u001f/ p." + page);
+			Alters alters = extractAlters(w);
+			Word target = null;
+			try {
+				target = findRelatedWord(w, w.getGroup(), wcand->wcand.y>=w.y, wcand -> {
+					if (wcand.y < w.y - 2. || wcand.y-w.y>19.) {
+						return false;
+					}
+					ps.print("\t\t\u001b\u001ftrying candidate ");
+					ps.println(wcand.toShortString().replace("\n", ""));
+					Word parent = wcand.getGroup().parent;
+					if (parent == null) {
+						return false;
+					}
+					Alters alterLocs = new Alters(null, alterLocFun.apply(parent), alterLocFun.apply(wcand));
+					if (wcand.getDerived() != null) {
+						Optional<String> alternations = wcand.getDerived().words.stream()
+							.filter(dw -> dw.getAltRest() != null)
+							.map(dw -> extractAlters(dw).old)
+							.filter(al -> !al.isEmpty())
+							.reduce((l,r)-> l+"|"+r);
+						if (alternations.isPresent()) {
+							alterLocs.setDerivedAlters(alternations.get());
+						}
+					}
+					return alters.equals(alterLocs);
+				});
+			} catch (IllegalStateException ex) {
+				if (ex.getCause() != NON_MATCHING_LINE) {
+					throw ex;
+				}
+			}
+			if (target == null) {
+				ps.println("---Target not found");
+				failCount++;
+				return;
+			} else {
+				ps.println("+++Found " + target.toShortString());
+			}
+/*
+			target.setAltRest(w.getAltRest());
+			target.setAlternation(alters.alts);
+			if (w.getNotes()!= null) {
+				if (target.getNotes()!=null) {
+					throw new IllegalStateException("Notes already present");
+				}
+				target.setNotes(w.getNotes());
+			}
+			if (w.getDerived()!= null) {
+				if (target.getDerived()!=null) {
+					throw new IllegalStateException("Derived already present");
+				}
+				target.setDerived(w.getDerived());
+			}
+			w.deprecate();
+/**/
+		});
+	}
+
+	public void fixDelayedLinks() {
+		em.getTransaction().begin();
+		selectBatch(Word.class, (cb, root) -> cb.and(
+			cb.like(root.get(Word_.line), "__"),
+			root.get(Word_.deprecated).isNull(),
+			root.get(Word_.bunch).get(Bunch_.parent).isNotNull(),
+			cb.equal(cb.size(root.get(Word_.bunch).get(Bunch_.words)), 1)
+		)).process(w->{
+			ps.println("Processing word =======================");
+			Bunch g = w.getGroup();
+			final Word parent;
+			printWord(g.parent, 0, 2);
+			if (g.parent.getLine().startsWith("===")) {
+				ps.println("Это чередование: " + g.parent.getAltRest() + ", пробуем слово выше");
+				parent = findNearestRealWord(g.parent);
+				if (parent == null) {
+					ps.println("Не нашли, уходим");
+					return;
+				}
+				printWord(parent, 0, 2);
+			} else {
+				parent = g.parent;
+			}
+			List<Bunch> candGroups = new ArrayList<>();
+			selectList(Bunch.class, 20, (cb,broot) -> cb.and(
+				cb.equal(broot.get(Bunch_.page), g.page),
+					// p.x - 20 < bx
+				cb.gt(broot.get(Bunch_.x), parent.x - 20),
+					// x < bx < x+20
+				cb.gt(broot.get(Bunch_.x), w.x ),
+				cb.lt(broot.get(Bunch_.x), w.x + 30),
+					// by1 < y < by2
+				cb.lt(broot.get(Bunch_.y), w.y + 5.),
+				cb.gt(cb.sum(broot.get(Bunch_.y), broot.get(Bunch_.height)), w.y - 5.)
+			)).accept(blist -> {
+				candGroups.addAll(blist);
+			});
+			if (candGroups.size() > 1) {
+//				candGroups.removeIf(b -> b.getGroupLine().x1 < parent.x);
+				candGroups.removeIf(b -> {
+					for (Word ch: b.words) {
+						if (ch == parent){
+							return true;
+						}
+					}
+					Line pos = b.getGroupLine();
+					double h = pos.y2 - pos.y1;
+					return pos.x1>w.x+13 && h < 10;
+				});
+			}
+			if (candGroups.size() != 1) {
+				ps.println("Wrong number of groups near: " + candGroups.size());
+				return;
+			}
+			Bunch cand = candGroups.get(0);
+			ps.println("Found group " + cand.toString());
+			if (cand.parent != null) {
+				ps.println("Group already has parent word: " + cand.parent);
+				return;
+			}
+			if (cand.words.isEmpty() || cand.words.size() > 4) {
+				ps.println("Unusual number of words in group, skipping: " + cand.words.size());
+				return;
+			}
+			
+			Line grPos = cand.getGroupLine();
+			if (parent.y < grPos.getY2() || parent.x + parent.len < grPos.x1) {
+				ps.println("Incorrect group position relative to parent: " + grPos + " and " + parent.getPoint());
+				return;
+			}
+			if (parent.y > grPos.getY2() + 15.) {
+				// check for closer words
+				List<Word> others = findWordsInRegion(w, parent.y - grPos.getY2());
+				if (!others.isEmpty()) {
+					ps.println("Other words present upwards");
+					return;
+				}
+			}
+			ps.println("Applying link !!");
+			ps.println();
+			
+			if (parent != g.parent) {
+				g.parent.setDerived(null);
+			}
+			parent.setDerived(cand);
+			w.deprecate();
+		});
+		em.getTransaction().rollback();
+	}
+	
+	private List<Word> findWordsInRegion(final Word base, double height) {
+		List<Word> result = new ArrayList<>();
+		selectList(Word.class, 30, (cb, wroot) -> {
+			Expression<Double> wordMiddle = cb.sum(
+					wroot.get(Word_.x),
+					cb.quot(wroot.get(Word_.len), 2.0)
+			).as(Double.class);
+			return cb.and(
+				cb.equal(wroot.get(Word_.bunch).get(Bunch_.page), base.getGroup().page),
+				cb.between(wroot.get(Word_.y), base.y + 5., base.y + height),
+				cb.between(wordMiddle, base.x, base.x + 100)
+			);
+		}).accept(lst -> result.addAll(lst));
+		result.removeIf(w -> w.getLine().startsWith("==="));
+		return result;
+	}
+	
+	interface Fun {
+		Double v(Word w);
+	}
+	
+	private Word findNearestRealWord(Word alter) {
+		Fun d = w -> abs(w.y - alter.y);
+		Fun dist = w -> d.v(w) - 1e3 * (Math.signum(d.v(w))-1);
+		NavigableSet<Word> neighbs = new TreeSet<>((lw, rw) -> (int)(dist.v(lw) - dist.v(rw)));
+		neighbs.addAll(alter.getGroup().words);
+		neighbs.remove(alter);
+		return neighbs.pollFirst();
 	}
 
 	public void fixWrongLinks() {
@@ -178,14 +478,18 @@ public class DbRecordsParser implements DataProcessor {
 	}
 
 	private Word findRelatedWord(final Word noteword, final Bunch group, final Function<Word, Boolean> lineMatcher) {
+		return findRelatedWord(noteword, group, null, lineMatcher);
+	}
+
+	private Word findRelatedWord(final Word noteword, final Bunch group, java.util.function.Predicate<Word> filter, final Function<Word, Boolean> lineMatcher) {
 		Word[] result = {null};
-		visitNearestNeighbours(noteword, group, (Word bw) -> {
+		visitNearestNeighbours(noteword, group, filter, (Word bw) -> {
 			if (bw.y < noteword.y || bw.isDeprecated()) {
 				return false;
 			}
 			Bunch derived = bw.getDerived();
 			RuntimeException ex = null;
-			if (bw.x + bw.len / 1.5 < noteword.x - 6.5 || (derived != null && bw.x + bw.len * 0.8 > derived.getGroupLine().x1 + 4.0 && 0 >= derived.getGroupLine().compareTo(new Line(new Point(bw.x, bw.y), new Point(bw.x, bw.y + 9.0))))) {
+			if (bw.x + bw.len / 1.5 < noteword.x - 156.5 || (derived != null && bw.x + bw.len * 0.8 > derived.getGroupLine().x1 + 4.0 && 0 >= derived.getGroupLine().compareTo(new Line(new Point(bw.x, bw.y), new Point(bw.x, bw.y + 9.0))))) {
 				ex = new IllegalStateException("Related word is out of bounds");
 			}
 			if (ex == null && !lineMatcher.apply(bw)) {
@@ -205,10 +509,32 @@ public class DbRecordsParser implements DataProcessor {
 		});
 		return result[0];
 	}
+	
+	class CloseComparator implements Comparator<Word> {
+		private final Fun dist;
+		public CloseComparator(Fun dist) {
+			this.dist = dist;
+		}
+		@Override
+		public int compare(Word w1, Word w2) {
+			int preres = (int) (5e12 * (dist.v(w1) - dist.v(w2)));
+			return preres != 0 ? preres : w1.id - w2.id;
+		}
+	}
 
-	private void visitNearestNeighbours(Word word, Bunch group, Function<Word, Boolean> proc) {
-		NavigableSet<Word> neighbours = new TreeSet<>((Word w1, Word w2) -> (int) (5e5 * (abs(word.y - w1.y) - abs(word.y - w2.y))));
-		neighbours.addAll(group.words);
+	private void visitNearestNeighbours(Word word, Bunch group, java.util.function.Predicate<Word> filter, Function<Word, Boolean> proc) {
+		Fun d = w -> abs(w.y - word.y);
+		Fun dist = w -> d.v(w) - 1e3 * (Math.signum(d.v(w))-1);
+//		NavigableSet<Word> neighbours = new TreeSet<>((lw, rw) -> (int)(dist.v(lw) - dist.v(rw)));
+		NavigableSet<Word> neighbours = new TreeSet<>(new CloseComparator(d));
+		Set<Word> words;
+		if (filter != null) {
+			words = new HashSet<>(group.words.size());
+			group.words.forEach(w -> {if (filter.test(w)) words.add(w);});
+		} else {
+			words = group.words;
+		}
+		neighbours.addAll(words);
 		neighbours.remove(word);
 		for (Word bw : neighbours) {
 			if (proc.apply(bw)) {
@@ -285,24 +611,28 @@ public class DbRecordsParser implements DataProcessor {
 	interface EntityProcessor<T> {
 		void process(Consumer<T> proc);
 	}
-	private <T> EntityProcessor<T> select(Class<T> type, Conditions conditions) {
+	private <T> EntityProcessor<T> select(Class<T> type, Conditions<T> conditions) {
 		TypedQuery<T> query = makeEntitySelect(type, conditions);
 		return (action) -> doProcessEach(query, action);
 	}
-	private <T> EntityProcessor<T> selectOne(Class<T> type, Conditions conditions) {
+	private <T> EntityProcessor<T> selectBatch(Class<T> type, Conditions<T> conditions) {
+		TypedQuery<T> query = makeEntitySelect(type, conditions);
+		return (action) -> query.getResultList().forEach(action);
+	}
+	private <T> EntityProcessor<T> selectOne(Class<T> type, Conditions<T> conditions) {
 		TypedQuery<T> q = makeEntitySelect(type, conditions);
 		return (action) -> action.accept(q.getSingleResult());
 	}
-	private <T> Consumer<Consumer<List<T>>> selectList(Class<T> type, int limit, Conditions conditions) {
+	private <T> Consumer<Consumer<List<T>>> selectList(Class<T> type, int limit, Conditions<T> conditions) {
 		TypedQuery<T> q = makeEntitySelect(type, conditions);
 		q.setMaxResults(limit);
 		return (action) -> action.accept(q.getResultList());
 	}
 
-	private <T> EntityProcessor<T> selectFunc(Class<T> type, Conditions conditions) {
+	private <T> EntityProcessor<T> selectFunc(Class<T> type, Conditions<T> conditions) {
 		return select_(type, conditions, this::doProcessEach);
 	}
-	private <T> EntityProcessor<T> selectOneFunc(Class<T> type, Conditions conditions) {
+	private <T> EntityProcessor<T> selectOneFunc(Class<T> type, Conditions<T> conditions) {
 		return select_(type, conditions, (q, a) -> a.accept(q.getSingleResult()) );
 	}
 	private <T> EntityProcessor<T> select_(Class<T> type, Conditions conditions, BiConsumer<TypedQuery<T>, Consumer<T>> applier) {
@@ -385,16 +715,25 @@ public class DbRecordsParser implements DataProcessor {
 
 	public void fixAlters() {
 		TypedQuery<Word> q = makeEntitySelect(Word.class, (cb, root) -> {
-			Path<String> line = root.get(Word_.line);
-			return cb.and(cb.like(line, "\u001b\u001f(%)_%"));
+			return root.get(Word_.id).in(77582, 94656, 96342);
 		});
 		doWordProcessing(q, (Word w) -> {
-			Word tail = fixWord2(w);
+			Word tail = fixWordT(w);
 			if (tail != null) {
 				em.persist(tail);
 				em.merge(tail.getBase());
 			}
 		});
+	}
+
+	private Word fixWordT(Word word) {
+		String line = word.getLine();
+		String patt = "\u001b\u001f\\(|\\)\u001b\u001f";
+		String[] parts = {
+			"===",
+			"выно´с-лив(ый)"
+		};
+		return fixWord_(word, parts);
 	}
 
 	private Word fixWord2(Word word) {
@@ -429,7 +768,8 @@ public class DbRecordsParser implements DataProcessor {
 					return null;
 			}
 		} else {
-			Word extract = word.splitRight(parts[0].length());
+//			Word extract = word.splitRight(parts[0].length());
+			Word extract = word.splitRight(word.getLine().length()/2);
 			extract.setGroup(derived);
 			return extract;
 		}
@@ -437,7 +777,7 @@ public class DbRecordsParser implements DataProcessor {
 
 	private Bunch findNearestGroup(Word word, Bunch group, Point groupLocation, double cutLen) {
 		Bunch[] derived = {null};
-		visitNearestNeighbours(word, group, (Word bw) -> {
+		visitNearestNeighbours(word, group, null, (Word bw) -> {
 			Bunch cand = bw.getDerived();
 			if (cand == null) {
 				return false;

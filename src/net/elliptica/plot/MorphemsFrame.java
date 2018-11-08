@@ -53,6 +53,7 @@ public class MorphemsFrame extends javax.swing.JFrame {
         groupButton = new javax.swing.JButton();
         delinkButton = new javax.swing.JToggleButton();
         destroyButton = new javax.swing.JButton();
+        mergeButton = new javax.swing.JButton();
         separator = new javax.swing.JSeparator();
         jLabel1 = new javax.swing.JLabel();
         pageSelector = new javax.swing.JSpinner();
@@ -70,7 +71,7 @@ public class MorphemsFrame extends javax.swing.JFrame {
         plot_.setLayout(plot_Layout);
         plot_Layout.setHorizontalGroup(
             plot_Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGap(0, 690, Short.MAX_VALUE)
+            .addGap(0, 775, Short.MAX_VALUE)
         );
         plot_Layout.setVerticalGroup(
             plot_Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
@@ -173,6 +174,14 @@ public class MorphemsFrame extends javax.swing.JFrame {
             }
         });
         jPanel2.add(destroyButton, new java.awt.GridBagConstraints());
+
+        mergeButton.setText("Присоединить");
+        mergeButton.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                mergeButtonActionPerformed(evt);
+            }
+        });
+        jPanel2.add(mergeButton, new java.awt.GridBagConstraints());
 
         separator.setOrientation(javax.swing.SwingConstants.VERTICAL);
         separator.setBorder(javax.swing.BorderFactory.createEtchedBorder());
@@ -289,6 +298,10 @@ public class MorphemsFrame extends javax.swing.JFrame {
 		plot.setOperationMode(GrafCanvas.OPERATION_MODE.DESTROY);
     }//GEN-LAST:event_destroyButtonActionPerformed
 
+    private void mergeButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_mergeButtonActionPerformed
+		plot.setOperationMode(GrafCanvas.OPERATION_MODE.MERGE);
+    }//GEN-LAST:event_mergeButtonActionPerformed
+
 	void onSelected(boolean has) {
 		moveButton.setEnabled(has);
 		linkButton.setEnabled(has);
@@ -386,6 +399,7 @@ public class MorphemsFrame extends javax.swing.JFrame {
     private javax.swing.JPanel jPanel1;
     private javax.swing.JPanel jPanel2;
     private javax.swing.JToggleButton linkButton;
+    private javax.swing.JButton mergeButton;
     private javax.swing.JToggleButton moveButton;
     private javax.swing.JSpinner pageSelector;
     private javax.swing.JButton pagesButton;

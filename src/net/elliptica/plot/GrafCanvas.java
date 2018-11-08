@@ -55,7 +55,8 @@ public class GrafCanvas extends JPanel {
 		LINKAGE("призывка к предку"),
 		DELINK("отвязка"),
 		DESTROY("удаление", true),
-		GROUP("группировка");
+		GROUP("группировка"),
+		MERGE("присоединение");
 
 		private OPERATION_MODE(String descr) {
 			this(descr, false);
@@ -139,6 +140,7 @@ public class GrafCanvas extends JPanel {
 		case DELINK:
 		case DESTROY:
 		case GROUP:
+		case MERGE:
 			if (!doOperation(currentOperationMode, w)) {
 				if (w!=null) {
 					// reset
@@ -168,6 +170,7 @@ public class GrafCanvas extends JPanel {
 		if (answer != JOptionPane.YES_OPTION) {
 			return false;
 		}
+		boolean result = false;
 		try {
 			switch (operMode) {
 			case MOVE:
@@ -178,6 +181,9 @@ public class GrafCanvas extends JPanel {
 				break;
 			case GROUP:
 				dao.doGroup(currentWord, w);
+				break;
+			case MERGE:
+				dao.doMergeWords(currentWord, w);
 				break;
 			case DESTROY:
 				dao.doDestroy(w);

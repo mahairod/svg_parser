@@ -11,6 +11,9 @@
 package net.elliptica.svg;
 
 import java.io.IOException;
+import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.stream.Stream;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.junit.BeforeClass;
@@ -115,4 +118,28 @@ System.out.print(
 		engine.fixWrongLinks();
 	}
 
+	@Test
+	public void testCountLinkedWords(){
+		System.out.println("countLinkedWords");
+		engine.countLinkedWords();
+		Integer a;
+	}
+
+	@Test
+	public void testFixDelayedLinks(){
+		System.out.println("fixDelayedLinks");
+		engine.fixDelayedLinks();
+	}
+
+	@Test
+	public void testMergeIsolatedAlters() throws Exception{
+		System.out.println("mergeIsolatedAlters");
+		engine.mergeIsolatedAlters();
+	}
+
+	@Test
+	public void testShowFlags() throws Exception{
+		System.out.println("showFlags");
+		engine.showFlags();
+	}
 }

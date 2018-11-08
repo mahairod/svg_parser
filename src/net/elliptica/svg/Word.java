@@ -11,6 +11,8 @@
 package net.elliptica.svg;
 
 import java.io.Serializable;
+import java.util.function.Consumer;
+import java.util.function.Supplier;
 import javax.persistence.CascadeType;
 import javax.persistence.Column;
 import javax.persistence.Convert;
@@ -45,6 +47,7 @@ public class Word implements Comparable<Word>, Serializable {
 		this.base = null;
 		x= y= len= 0;
 		hyphen = false;
+		this.altRest = null;
 	}
 
 	public Word(MorphemStreamEngine.LineState ls) {
@@ -59,6 +62,7 @@ public class Word implements Comparable<Word>, Serializable {
 		this.y = y;
 		this.len = len;
 		this.hyphen = hyphen;
+		this.altRest = null;
 	}
 
 	private Word(String line, Word orig, double koeff) {
@@ -109,10 +113,12 @@ public class Word implements Comparable<Word>, Serializable {
 	@Column(name = "alt_rest")
 	private String altRest;
 
+	private Character variant;
 	private Character version;
 
+	@Lob
 	@Convert(converter = FlagsConveter.class)
-	private Boolean[] flags;
+	private byte[] flags;
 
 	@Convert(converter = PoSConverter.class)
 	private PartOfSpeach pos;
@@ -162,6 +168,10 @@ public class Word implements Comparable<Word>, Serializable {
 
 	public void deprecate(){
 		deprecated = true;
+	}
+
+	void setNotDeprecated(){
+		deprecated = false;
 	}
 
 	public Boolean isDeprecated() {
@@ -215,6 +225,35 @@ public class Word implements Comparable<Word>, Serializable {
 		}
 		this.derived = null;
 		return rWord;
+	}
+	
+	void mergeWith(Word t) {
+		line += t.line;
+		len += t.len/3;
+		
+		class Setter {
+			<T> void set(String name, Consumer<T> setter, Supplier<T> getter, Supplier<T> o_getter) {
+				T val = o_getter.get();
+				if (val != null) {
+					if (getter.get() != null) {
+						throw new IllegalStateException(name + " already present");
+					}
+					setter.accept(val);
+				}
+			}
+		}
+		
+		Setter setter = new Setter();
+
+		setter.set("Derived", this::setDerived, this::getDerived, t::getDerived);
+		setter.set("Notes", this::setNotes, this::getNotes, t::getNotes);
+		setter.set("AltRest", this::setAltRest, this::getAltRest, t::getAltRest);
+		setter.set("Alternation", this::setAlternation, this::getAlternation, t::getAlternation);
+		setter.set("Version", this::setVersion, this::getVersion, t::getVersion);
+		setter.set("Variant", this::setVariant, this::getVariant, t::getVariant);
+		setter.set("PoS", this::setPos, this::getPos, t::getPos);
+		setter.set("Flags", this::setFlags, this::getFlags, t::getFlags);
+
 	}
 
 	public Point getPoint(){
@@ -281,16 +320,28 @@ public class Word implements Comparable<Word>, Serializable {
 		this.version = version;
 	}
 
-	public Boolean[] getFlags() {
+	public Character getVariant() {
+		return variant;
+	}
+
+	void setVariant(Character variant) {
+		this.variant = variant;
+	}
+
+	public byte[] getFlags() {
 		return flags;
 	}
 
-	void setFlags(Boolean[] flags) {
+	void setFlags(byte[] flags) {
 		this.flags = flags;
 	}
 
 	public PartOfSpeach getPos() {
 		return pos;
+	}
+
+	void setPos(PartOfSpeach pos) {
+		this.pos = pos;
 	}
 
 }
