@@ -96,7 +96,7 @@ order by cnt asc;
 
 ----------------------------------------------------------------------------------------------------------
 -- 1c B I	// fs
--- 1d I		// 
+-- 1d I		// gs
 -- 1e B		// rs
 -- 1f		// us
 
@@ -147,24 +147,44 @@ and (line ~ (regex))
 WITH 
 	v AS (SELECT '\u001b[\u001e\u001c]((?:[^\u001d\u001f[|]+|(?:[(\][]|[(´]\[))+)(?:\u001b[\u001d\u001f]|$)'::text AS bl),
 	vars AS (SELECT bl, '(' || ('[-\|][[(]?'||bl||'-')  ||'|'||  ('^'||bl||'-')  ||'|'|| ('-'||bl) || ')' AS regex from v),
-	msel as (
+	mr as (select regexp_matches(line, regex, 'g') as m, word.* from word, vars where deprecated is null and line ~ regex),
+	msel as ( select
+			position(m[1] in line) goffs,
+			array_search(false, array_nulls(m), 2) typeind, mr.*
+		from mr
+	)
+--	insert into affix_appl
 select 
-	regexp_matches(line, regex) m, 
-	position((regexp_matches(line, regex))[1] in line) goffs,
-	array_search(false, array_nulls(regexp_matches(line, regex)), 2) typeind,
-	word.*
-from word, vars where deprecated is null 
-and (line ~ (regex))
-order by id, bunch_id asc
-) select (ARRAY['infix','prefix','suffix'])[typeind-1], m,
-	regexp_replace(m[typeind], '[´\u001b-\u001f([]', '', 'g') mc, m[typeind] orig,
 	position(m[typeind] in substr(line, goffs)) + goffs-1 offs,
-length(m[typeind]), line from msel
+	length(m[typeind]), m[typeind],
+	a.id as aff, msel.id as word
+ from msel join affix a on
+		a.value like regexp_replace(m[typeind], '[´\u001b-\u001f([\]]', '', 'g')
+		and a.kind = (ARRAY['infix','prefix','suffix'])[typeind-1]
 ;
 
+WITH 
+	v AS (SELECT '\u001b[\u001e\u001c]((?:[^\u001d\u001f[|]+|(?:[(\][]|[(´]\[))+)(?:\u001b[\u001d\u001f]|$)'::text AS bl),
+	vars AS (SELECT bl, '(' || ('[-\|][[(]?'||bl||'-')  ||'|'||  ('^'||bl||'-')  ||'|'|| ('-'||bl) || ')' AS regex from v),
+	mr as (select regexp_matches(line, regex, 'g') as m, word.* from word, vars where deprecated is null and line ~ regex),
+	msel as ( select
+			array_search(false, array_nulls(m), 2) typeind, mr.*
+		from mr
+	),
+	sel as (
+		select
+			regexp_replace(m[typeind], '[´\u001b-\u001f([\]]', '', 'g') mc,-- m[typeind] orig,
+			msel.*
+		--	position(m[typeind] in substr(line, goffs)) + goffs-1 offs,
+		--	length(m[typeind]), line
+		from msel
+	)
+--	insert into affix (value, qty, kind) 
+select mc, count(id) qty, (ARRAY['infix','prefix','suffix'])[typeind-1] kind from sel group by typeind, mc order by qty desc
+;
 
---update word set line = regexp_replace(line, '^(\u001b\u001f)', '') where line ~ '^(\u001b\u001f)+\u001b[\u001c-\u001f].*';
-select regexp_replace(line, '^(\u001b[\u001c-\u001f])', ''), * from word where line ~ '^(\u001b[\u001c-\u001f])+\u001b[\u001c-\u001f].*';
+select kind, sum(a.qty) from affix a group by a.kind;
+
 
 CREATE FUNCTION array_search(needle ANYELEMENT, haystack ANYARRAY)
 RETURNS INT AS $$
