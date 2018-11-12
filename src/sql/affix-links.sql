@@ -72,3 +72,45 @@ select word word, line, array[affix1, affix2, affix3] affices, array[affappl1, a
 from composed_affix_appl caa
 join word w on w.id = caa.word
 ;
+
+
+with rows as (
+SELECT 
+  p_caa.line AS par_line,
+  p_caa.affix_vals AS par_aff,
+  p_caa.affices AS paff_ind,
+  p_caa.id AS par_id,
+  d_caa.affix_vals AS der_aff,
+  d_caa.affices AS daff_ind,
+  d_caa.id AS der_id
+FROM 
+  word_chain, 
+  composite_affix_application p_caa, 
+  composite_affix_application d_caa
+WHERE 
+  word_chain.derived = d_caa.word AND
+  word_chain.parent = p_caa.word
+)
+select * from rows;
+--update composed_affix_appl set parent=par_id from rows where parent is null and id=der_id;
+
+select count(*) from composed_affix_appl where parent is not null;
+
+SELECT count (*) qty,
+  min(p_caa.affix_vals) AS par_aff, 
+  string_agg(regexp_replace(p_caa.line, '[´\u001b-\u001f[\]]', '', 'g'), '; ') AS pline,
+  min(d_caa.affix_vals) AS der_aff,
+  string_agg(regexp_replace(d_caa.line, '[´\u001b-\u001f[\]]', '', 'g'), '; ') AS dline
+FROM 
+  word_chain, 
+  composite_affix_application p_caa, 
+  composite_affix_application d_caa
+WHERE 
+  word_chain.derived = d_caa.word AND
+  word_chain.parent = p_caa.word
+group BY
+  p_caa.affices, 
+  d_caa.affices
+order by qty desc
+  ;
+

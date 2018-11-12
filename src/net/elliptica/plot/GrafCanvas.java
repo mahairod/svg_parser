@@ -16,10 +16,12 @@ import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.awt.geom.Point2D;
 import static java.lang.Math.abs;
+import java.text.AttributedCharacterIterator;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.swing.JOptionPane;
@@ -290,8 +292,10 @@ public class GrafCanvas extends JPanel {
 		g.setColor(w != currentWord ? color : Color.MAGENTA);
 		g.drawRoundRect(sp.x, sp.y, ep.x, ep.y, 4, 4);
 		g.setColor(Color.BLACK);
-		g.drawString(w.getLine().replaceAll("[´]", ""), sp.x, sp.y+11);
+		g.drawString(new LineIterator(w.getLine()), sp.x, sp.y+11);
+//		g.drawString(w.getLine().replaceAll("[´]", ""), sp.x, sp.y+11);
 	}
+	
 	
 	private void drawLink(Graphics g, Point2D src, Point2D dst) {
 		PointI sp = translateCoord(src);
