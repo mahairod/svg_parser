@@ -16,7 +16,6 @@ import java.text.AttributedCharacterIterator;
 import java.text.CharacterIterator;
 import java.util.Arrays;
 import static java.util.Arrays.binarySearch;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.ListIterator;

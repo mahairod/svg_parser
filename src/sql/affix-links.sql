@@ -3,9 +3,11 @@ with
 	select count(*) qty, word,
 		array_agg(id order by offs) aa, array_agg(affix order by offs) a,
 		array_agg(offs order by offs) starts, array_agg(offs+len order by offs) ends
-	from affix_appl aa group by word
+	from affix_appl aa
+--	where word = 113804
+	group by word
 )
---	insert into composed_affix_appl
+	insert into composed_affix_appl
 select word, aa[1], aa[2], aa[3], a[1], a[2], a[3],
 		ARRAY(select numrange((1::smallint||ends)[i], starts[i]) from generate_series(1, 1+array_length(starts,1)) g(i)) val_locs,
 		ARRAY(select numrange(starts[i], ends[i]) from generate_subscripts(starts,1) g(i)) aff_locs
@@ -18,10 +20,6 @@ join affix a on a.id = aa.affix
 group by word, kind
 having count (a.kind) > 2-- and kind like 'infix '
 ;
-
-select id, * from affix_appl where word in (4658);
-
-select * from affix where id in (11, 3);
 
 CREATE SEQUENCE composed_affix_id_seq;
 create type affices as (affix1 integer, affix2 integer, affix3 integer);
@@ -73,7 +71,6 @@ from composed_affix_appl caa
 join word w on w.id = caa.word
 ;
 
-
 with rows as (
 SELECT 
   p_caa.line AS par_line,
@@ -82,17 +79,42 @@ SELECT
   p_caa.id AS par_id,
   d_caa.affix_vals AS der_aff,
   d_caa.affices AS daff_ind,
+  d_caa.parent AS der_parent,
   d_caa.id AS der_id
 FROM 
-  word_chain, 
+  word_chain wc, 
   composite_affix_application p_caa, 
   composite_affix_application d_caa
 WHERE 
-  word_chain.derived = d_caa.word AND
-  word_chain.parent = p_caa.word
+  wc.derived = d_caa.word AND
+  wc.parent = p_caa.word
+  and d_caa.parent is null
 )
 select * from rows;
---update composed_affix_appl set parent=par_id from rows where parent is null and id=der_id;
+--update composed_affix_appl caa set parent=par_id from rows where caa.parent is null and id=der_id;
+
+---find wrong links
+with rows as (
+SELECT 
+	wc.derived, wc.parent,
+  p_caa.line AS par_line,
+  p_caa.affix_vals AS par_aff,
+  p_caa.affices AS paff_ind,
+  p_caa.id AS par_id,
+  d_caa.affix_vals AS der_aff,
+  d_caa.affices AS daff_ind,
+  d_caa.parent AS der_parent,
+  d_caa.id AS der_id
+FROM 
+  word_chain wc, 
+  composite_affix_application p_caa, 
+  composite_affix_application d_caa
+WHERE 
+  wc.derived = d_caa.word AND
+  wc.parent = p_caa.word
+  and (d_caa.parent is not null and d_caa.parent != p_caa.id)
+)
+select * from rows;
 
 select count(*) from composed_affix_appl where parent is not null;
 
