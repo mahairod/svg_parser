@@ -50,7 +50,7 @@ select w.id word, pw.id pid,
 	w.line origin, pw.line parent,
 	regexp_replace(w.line, clean, '', 'g') cln,
 	regexp_replace(pw.line, clean, '', 'g') pcln,
-	regexp_matches(w.line, '(.*[а-ё])((\u001b\u001f)?\(.*\))?') parts,
+	regexp_matches(w.line, '(.*)((\u001b\u001f)?\(.*\))?') parts,
 	'[|-]'::text as ext_patt, clean
 from const, bunch_word w
 join bunch_word pw on pw.derived_id = w.bunch
@@ -81,7 +81,7 @@ select
 select 
 	array[numrange(1, 1+length(base))] locs,
 	* from rows1
-	where not clalparent ~ (cbase||'.*')
+	where not clalparent ~ (try_alters(cbase)||'.*')
 )
 select * from rows3;
 --insert into composed_affix_appl
@@ -90,18 +90,35 @@ select * from rows3;
 --select 1, length(base) orl, base orig, 657 aff, word, pid from rows3 r;
 ;
 
-select id, line, page from bunch_word where id in (
-	select bwp.id from composed_affix_appl caa
-	join bunch_word bw on bw.id = caa.word
-	join bunch_word bwp on bwp.derived_id = bw.bunch
-	left join composed_affix_appl pcaa on pcaa.word = bwp.id
-		where true 
-		and caa.parent is null
-		and pcaa.word is null
---		and bwp.line like '%/%'
-	group by bwp.id
-)	;
+select * from word where id in (145919);
 
+select * from bunch_word where bunch = 2466;
+
+CREATE OR REPLACE FUNCTION try_alters(orig text)
+RETURNS text AS $$
+declare
+	subres text;
+	conson text;
+begin
+	conson = '([^яиеюёйаыэуо?])';
+	subres := orig;
+	subres := regexp_replace(subres, 'ой', 'о[яиеюёй]', 'g');
+	RAISE NOTICE 'Subresult-1--: %', subres;
+	subres := regexp_replace(subres, conson||'о'||conson, '\1о?\2');
+	RAISE NOTICE 'Subresult-21--: %', subres;
+	subres := regexp_replace(subres, conson||'о'||conson, '\1о?\2');
+	RAISE NOTICE 'Subresult-22--: %', subres;
+	subres := regexp_replace(subres, 'зд', 'з[дж]', 'g');
+	subres := regexp_replace(subres, 'ст', '(д|ст)', 'g');
+	subres := regexp_replace(subres, 'о', '[оа]', 'g');
+	subres := regexp_replace(subres, 'г', '[гж]', 'g');
+	subres := regexp_replace(subres, 'ю', '[ею]', 'g');
+	subres := regexp_replace(subres, conson||'ь'||conson, '\1[ье]\2', 'g');
+	subres := regexp_replace(subres, '^(с|от|об)', '\1о?', 'g');
+	RAISE NOTICE 'Subresult-3--: %', subres;
+	return subres;
+end;
+$$ LANGUAGE plpgsql STABLE;
 
 CREATE OR REPLACE FUNCTION apply_alters(orig text, alt1 text[], alt2 text[])
 RETURNS text AS $$

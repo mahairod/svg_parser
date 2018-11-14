@@ -30,7 +30,7 @@ left join composed_affix_appl pcaa on pcaa.word = bwp.id
 	where true 
 	and caa.parent is null
 	and pcaa.word is null
---	and bwp.line like '%/%'
+	and bwp.line like '%/%'
 group by bwp.id
 ;
 -----------------------------------------------------------------------------------------------------------
@@ -75,7 +75,7 @@ where /*a.affix = 655 and*/ w.id in (
 		where true 
 		and caa.parent is null
 		and pcaa.word is null
---		and bwp.line like '%/%'
+		and bwp.line like '%/%'
 	group by bwp.id
 )
 group by cln
@@ -84,7 +84,6 @@ order by qty desc, cln
 ), rows1 as (
 select unnest(ids) word,
 	regexp_split_to_array(unnest(origins), '/') ps, unnest(origins) origin, * from arrs
---) select * from rows1;
 ), rows2 as (
 select array[
 	numrange(1, length(ps[1])+1),
@@ -95,8 +94,8 @@ select array[
 select array((select el from unnest(locs_) l(el) where lower(el)<=length(origin))) as locs, * from rows2
 )
 --insert into composed_affix_appl
-select * from rows3 order by qty desc;
 select word, aaids[1],aaids[2],aaids[3], aids[1],aids[2],aids[3], locs, locs  from rows3;
+select * from rows3 order by qty desc;
 ;
 
 select * from bunch_word w

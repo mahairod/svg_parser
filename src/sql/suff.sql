@@ -145,19 +145,22 @@ and (line ~ (regex))
 ;
 
 WITH 
-	v AS (SELECT '\u001b[\u001e\u001c]((?:[^\u001d\u001f[|]+|(?:[(\][]|[(´]\[))+)(?:\u001b[\u001d\u001f]|$)'::text AS bl),
-	vars AS (SELECT bl, '(' || ('[-\|][[(]?'||bl||'-')  ||'|'||  ('^'||bl||'-')  ||'|'|| ('-'||bl) || ')' AS regex from v),
-	mr as (select regexp_matches(line, regex, 'g') as m, word.* from word, vars where deprecated is null and line ~ regex),
+	v AS (SELECT '\u001b[\u001e\u001c]((?:[^\u001d\u001f[|]+|(?:[(\][]|[(´]\[))+)(?:\u001b[\u001d\u001f]|\||$)'::text AS bl),
+	vars AS (SELECT bl, '(' || ('[-\|][[(]?'||bl||'-(?!\u001b[\u001e\u001c])')  ||'|'||  ('^'||bl||'-')  ||'|'|| ('-'||bl) || ')' AS regex from v),
+	mr as (select regexp_matches(line, regex, 'g') as m, w.* from vars, word w
+		left join affix_appl aa on aa.word=w.id  where deprecated is null and aa.id is null
+		and line ~ regex),
 	msel as ( select
 			position(m[1] in line) goffs,
 			array_search(false, array_nulls(m), 2) typeind, mr.*
 		from mr
 	)
---	insert into affix_appl
+--	select * from msel/* group by id/**/;
+--	insert into affix_appl (offs, len, orig, affix, word, parent_word)
 select 
 	position(m[typeind] in substr(line, goffs)) + goffs-1 offs,
 	length(m[typeind]), m[typeind],
-	a.id as aff, msel.id as word
+	a.id as aff, msel.id as word, 0
  from msel join affix a on
 		a.value like regexp_replace(m[typeind], '[´\u001b-\u001f([\]]', '', 'g')
 		and a.kind = (ARRAY['infix','prefix','suffix'])[typeind-1]
@@ -165,11 +168,12 @@ select
 
 WITH 
 	v AS (SELECT '\u001b[\u001e\u001c]((?:[^\u001d\u001f[|]+|(?:[(\][]|[(´]\[))+)(?:\u001b[\u001d\u001f]|$)'::text AS bl),
-	vars AS (SELECT bl, '(' || ('[-\|][[(]?'||bl||'-')  ||'|'||  ('^'||bl||'-')  ||'|'|| ('-'||bl) || ')' AS regex from v),
+	vars AS (SELECT bl, '(' || ('[-\|][[(]?'||bl||'-(?!\u001b[\u001e\u001c])')  ||'|'||  ('^'||bl||'-')  ||'|'|| ('-'||bl) || ')' AS regex from v),
 	mr as (select regexp_matches(line, regex, 'g') as m, word.* from word, vars where deprecated is null and line ~ regex),
 	msel as ( select
 			array_search(false, array_nulls(m), 2) typeind, mr.*
 		from mr
+		left join affix_appl aa on aa.word=mr.id  where aa.id is null
 	),
 	sel as (
 		select
@@ -179,8 +183,11 @@ WITH
 		--	length(m[typeind]), line
 		from msel
 	)
---	insert into affix (value, qty, kind) 
-select mc, count(id) qty, (ARRAY['infix','prefix','suffix'])[typeind-1] kind from sel group by typeind, mc order by qty desc
+--	select * from msel;
+--	insert into affix a (value, qty, kind) 
+select mc, count(id) qty, (ARRAY['infix','prefix','suffix'])[typeind-1] kind from sel
+where not exists(select from affix a where a.value=mc and a.kind=kind)
+group by typeind, mc order by qty desc
 ;
 
 select kind, sum(a.qty) from affix a group by a.kind;

@@ -1,13 +1,14 @@
 with
   aa as (
-	select count(*) qty, word,
-		array_agg(id order by offs) aa, array_agg(affix order by offs) a,
+	select count(*) qty, aa.word,
+		array_agg(aa.id order by offs) aa, array_agg(affix order by offs) a,
 		array_agg(offs order by offs) starts, array_agg(offs+len order by offs) ends
 	from affix_appl aa
---	where word = 113804
-	group by word
+		left join composed_affix_appl caa on (aa.id=caa.affappl1 or aa.id=caa.affappl2 or aa.id=caa.affappl3) where caa.id is null
+	group by aa.word
 )
-	insert into composed_affix_appl
+--select * from aa;
+--	insert into composed_affix_appl
 select word, aa[1], aa[2], aa[3], a[1], a[2], a[3],
 		ARRAY(select numrange((1::smallint||ends)[i], starts[i]) from generate_series(1, 1+array_length(starts,1)) g(i)) val_locs,
 		ARRAY(select numrange(starts[i], ends[i]) from generate_subscripts(starts,1) g(i)) aff_locs
@@ -93,6 +94,9 @@ WHERE
 select * from rows;
 --update composed_affix_appl caa set parent=par_id from rows where caa.parent is null and id=der_id;
 
+select * from composed_affix_appl where parent is null;
+select * from composite_affix_application where parent is null;
+
 ---find wrong links
 with rows as (
 SELECT 
@@ -115,8 +119,6 @@ WHERE
   and (d_caa.parent is not null and d_caa.parent != p_caa.id)
 )
 select * from rows;
-
-select count(*) from composed_affix_appl where parent is not null;
 
 SELECT count (*) qty,
   min(p_caa.affix_vals) AS par_aff, 
