@@ -42,6 +42,15 @@ select count(*) qty, array_agg(w.id order by w.id) ids, array_agg(pw.id order by
 from bunch_word w
 join bunch_word pw on pw.derived_id = w.bunch
 where w.id in (
+        select bw.id from composed_affix_appl caa
+          right join bunch_word bw on bw.id = caa.word
+          join bunch_word bwp on bwp.derived_id = bw.bunch
+        where true
+              and caa.id is null
+              and bw.line like '%/%'
+              and not bw.line ~ '.*[а-ё´]{2,}-[а-ё]{2,}.*'
+              and not bw.line ~ '.*[а-ё]-[а-ё].*'
+/*
 	select bwp.id from composed_affix_appl caa
 	join bunch_word bw on bw.id = caa.word
 	join bunch_word bwp on bwp.derived_id = bw.bunch
@@ -51,6 +60,7 @@ where w.id in (
 		and pcaa.word is null
 		and bwp.line like '%/%'
 	group by bwp.id
+*/
 )
 group by cln
 )
@@ -67,7 +77,16 @@ select count(*) qty, array_agg(w.id order by w.id) ids, array_agg(pw.id order by
 from bunch_word w
 join bunch_word pw on pw.derived_id = w.bunch
 left join affix_appl a on w.id = a.word
-where /*a.affix = 655 and*/ w.id in (
+where a.affix = 655 and w.id in (
+        select bw.id from composed_affix_appl caa
+          right join bunch_word bw on bw.id = caa.word
+          join bunch_word bwp on bwp.derived_id = bw.bunch
+        where true
+              and caa.id is null
+              and bw.line like '%/%'
+              and not bw.line ~ '.*[а-ё´]{2,}-[а-ё]{2,}.*'
+              and not bw.line ~ '.*[а-ё]-[а-ё].*'
+/*
 	select bwp.id from composed_affix_appl caa
 	join bunch_word bw on bw.id = caa.word
 	join bunch_word bwp on bwp.derived_id = bw.bunch
@@ -77,6 +96,7 @@ where /*a.affix = 655 and*/ w.id in (
 		and pcaa.word is null
 		and bwp.line like '%/%'
 	group by bwp.id
+*/
 )
 group by cln
 order by qty desc, cln
@@ -102,11 +122,5 @@ select * from bunch_word w
 left join composed_affix_appl a on w.id = a.word
 where w.line like '%/%' and affappl1 is null;
 
-select * from bunch_word bw where bunch = 45114 or 45114 = derived_id;
 select * from affix_appl aa where affix in (655);
 select * from composite_affix_application caa where affices[1] in (655);
-
-select bw.page, bw.line, caa.word, caa.id, caa.parent from composed_affix_appl caa
-join bunch_word bw on bw.id = caa.word
-where parent is null
-order by word;

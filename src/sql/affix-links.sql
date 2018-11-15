@@ -7,13 +7,15 @@ with
 		left join composed_affix_appl caa on (aa.id=caa.affappl1 or aa.id=caa.affappl2 or aa.id=caa.affappl3) where caa.id is null
 	group by aa.word
 )
---select * from aa;
+select * from aa join word w on aa.word = w.id;
 --	insert into composed_affix_appl
 select word, aa[1], aa[2], aa[3], a[1], a[2], a[3],
 		ARRAY(select numrange((1::smallint||ends)[i], starts[i]) from generate_series(1, 1+array_length(starts,1)) g(i)) val_locs,
 		ARRAY(select numrange(starts[i], ends[i]) from generate_subscripts(starts,1) g(i)) aff_locs
 from aa
 ;
+--delete from affix_appl where affix = 656 and id in (select aaid from aa);
+--select aa.word, count(*) qty, min(aa.aa[1]), min(aa.a[1]) from aa join affix_appl aa2 on aa.word=aa2.word group by aa.word having count(*) = 2;
 
 select count(*) qty, word, array_agg(aa.id) aa, array_agg(aa.affix) a, a.kind, count (a.kind) kqty
 from affix_appl aa
@@ -118,7 +120,10 @@ WHERE
   wc.parent = p_caa.word
   and (d_caa.parent is not null and d_caa.parent != p_caa.id)
 )
-select * from rows;
+--update composed_affix_appl caa set parent=null from (
+select * from rows
+--) as wrrows where caa.parent is not null and id=der_id
+;
 
 SELECT count (*) qty,
   min(p_caa.affix_vals) AS par_aff, 

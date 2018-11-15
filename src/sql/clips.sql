@@ -101,6 +101,55 @@ select parts[1] base, * from rows3;
 --select 1, length(base) orl, base orig, 657 aff, word, pid from rows3 r;
 ;
 
+with arrs as (
+select w.id word, pw.id pid,
+	a.id aaid, a.affix aid,
+	w.line origin, pw.line parent,
+	regexp_replace(w.line, '[´\u001b-\u001f[\]()]', '', 'g') cln,
+	regexp_replace(pw.line, '[´\u001b-\u001f[\]()]', '', 'g') pcln,
+	regexp_matches(w.line, '(.*[а-ё])((\u001b\u001f)?\(.+\))?') parts,
+	'[|-]'::text as ext_patt
+from bunch_word w
+join bunch_word pw on pw.derived_id = w.bunch
+left join affix_appl a on w.id = a.word
+where w.id in (
+	select bw.id from composed_affix_appl caa
+	right join bunch_word bw on bw.id = caa.word
+	join bunch_word bwp on bwp.derived_id = bw.bunch
+		where true 
+		and caa.id is null
+		and bw.line not like '%/%'
+		and not bw.line ~ '.*[а-ё´]{2,}-[а-ё]{2,}.*'
+--		and not bw.line ~ '.*[а-ё´][а-ё]-[а-ё]{2,}.*'
+		and not bw.line ~ '.*[а-ё]-[а-ё].*'
+	group by bw.id
+)
+order by cln
+
+), rows1 as (
+select parts[1] base,
+	regexp_replace(pcln, ext_patt, '', 'g') pcline,
+	regexp_replace(cln, ext_patt||'|ь$', '', 'g') cline,
+	*  from arrs
+), rows3 as (
+select  regexp_matches(pcline, cline||'.*'),
+	array[numrange(1, 1+length(base))] locs,
+	* from rows1
+	where pcline ~ (cline||'.*')
+)
+--select * from rows3;
+, ins as (
+  insert into affix_appl (offs, len, orig, affix, word, parent_word)
+    select 1, length(base) orl, base orig, 656 aff, word, pid from rows3 r
+  returning *
+)
+insert into composed_affix_appl (word, affappl1, affix1, val_locs, aff_locs)
+  select ins.word, ins.id, ins.affix, rows3.locs, rows3.locs from ins join rows3 on ins.word = rows3.word
+;
+
+
+select * from affix where qty < 0;
+
 ---------- precise match ------------------------
 
 with const as (select '[´\u001b\u001c-\u001f[\]()]'::text clean),
@@ -149,3 +198,124 @@ select * from rows3;
 --insert into affix_appl (offs, len, orig, affix, word, parent_word)
 --select 1, length(base) orl, base orig, 657 aff, word, pid from rows3 r;
 ;
+
+	select bw.line, regexp_replace(bw.line, '[´]', '', 'g') as cln, caa.id caa, caa.parent par, bwp.* from composed_affix_appl caa
+	right join bunch_word bw on bw.id = caa.word
+	join bunch_word bwp on bwp.derived_id = bw.bunch
+		where true 
+		and caa.id is null
+		and bw.line not like '%/%'
+		and not bw.line ~ '.*[а-ё´]{2,}-[а-ё]{2,}.*'
+--		and not bw.line ~ '.*[а-ё´][а-ё]-[а-ё]{2,}.*'
+		and not bw.line ~ '.*[а-ё]-[а-ё].*'
+--	group by bwp.id
+;
+
+
+with const as (select '[´\u001b\u001c-\u001f[\]()-]'::text clean),
+	arrs as (
+select w.id word, pw.id pid,
+	a.id aaid, a.affix aid,
+	w.line origin, pw.line parent,
+	regexp_replace(w.line, clean, '', 'g') cln,
+	regexp_replace(pw.line, clean, '', 'g') pcln,
+	regexp_matches(w.line, '(.*[а-ё])((\u001b\u001f)?\(.*\))?') parts,
+	regexp_split_to_array(w.alternation, ':|-') alts,
+	'[|-]'::text as ext_patt, clean
+from const, bunch_word w
+join bunch_word pw on pw.derived_id = w.bunch
+left join affix_appl a on w.id = a.word
+where w.id in (
+	select bw.id from composed_affix_appl caa
+	right join bunch_word bw on bw.id = caa.word
+	join bunch_word bwp on bwp.derived_id = bw.bunch
+		where true 
+		and caa.id is null
+		and bw.line not like '%/%'
+		and not bw.line ~ '.*[а-ё´]{2,}-[а-ё]{2,}.*'
+--		and not bw.line ~ '.*[а-ё´][а-ё]-[а-ё]{2,}.*'
+		and not bw.line ~ '.*[а-ё]-[а-ё].*'
+	group by bw.id
+)
+	and w.alternation is not null
+order by cln
+
+), rows1 as (
+select 
+	parts[1] base,
+	regexp_replace(regexp_replace(parts[1], '\u001cё', 'о'), clean || '|ь$', '', 'g') cbase,
+--	apply_alters(parent, alts[1], alts[2], alts[3], alts[4]) alparent,
+	regexp_replace(apply_alters(parent, alts[1], alts[2], alts[3], alts[4]), clean || '|' || ext_patt, '', 'g') clalparent,
+	regexp_replace(pcln, ext_patt, '', 'g') pcline,
+	regexp_replace(cln, ext_patt, '', 'g') cline,
+--	regexp_replace(regexp_replace(cln, '\u001cё', 'о'), ext_patt||'|ь$', '', 'g') cline,
+	*  from arrs
+), rows3 as (
+select 
+ array[numrange(1, 1+length(base))] locs,
+	* from rows1
+	where clalparent ~ (cbase||'.*')
+)
+--select * from rows3;
+, ins as (
+--  insert into affix_appl (offs, len, orig, affix, word, parent_word)
+    select
+		0 as id,
+		1 offs, length(base) len, base orig, 657 affix, word, pid parent_word from rows3 r
+--	returning *
+)
+--insert into composed_affix_appl (word, affappl1, affix1, val_locs, aff_locs)
+  select ins.word, ins.id, ins.affix, rows3.locs, rows3.locs from ins join rows3 on ins.word = rows3.word;
+
+with const as (select '[´\u001b\u001c-\u001f[\]()]'::text clean),
+    arrs as (
+      select w.id word, pw.id pid,
+             a.id aaid, a.affix aid,
+             w.line origin, pw.line parent,
+             regexp_replace(w.line, clean, '', 'g') cln,
+             regexp_replace(pw.line, clean, '', 'g') pcln,
+             regexp_matches(w.line, '(.*?)((\u001b\u001f)?\(.+\))?$') parts,
+             '[/|-]'::text as ext_patt, clean
+      from const, bunch_word w
+        join bunch_word pw on pw.derived_id = w.bunch
+        left join affix_appl a on w.id = a.word
+      where w.id in (
+        select bw.id from composed_affix_appl caa
+          right join bunch_word bw on bw.id = caa.word
+          join bunch_word bwp on bwp.derived_id = bw.bunch
+        where true
+              and caa.id is null
+              and bw.line not like '%/%'
+              and not bw.line ~ '.*[а-ё´]{2,}-[а-ё]{2,}.*'
+              and not bw.line ~ '.*[а-ё]-[а-ё].*'
+      )
+--	and w.alternation is null
+      order by cln
+
+  ), rows1 as (
+    select
+      parts[1] base,
+--      regexp_replace(regexp_replace(regexp_replace(parts[1], '\u001cё', 'о'), '(.)', '\1?'), clean || '|ь$|' || ext_patt, '', 'g') cbase,
+      regexp_replace(regexp_replace(parts[1], '\u001cё', 'о'), clean || '|ь$|' || ext_patt, '', 'g') cbase,
+      regexp_replace(parent, clean || '|' || ext_patt, '', 'g') clalparent,
+      regexp_replace(pcln, ext_patt, '', 'g') pcline,
+      regexp_replace(cln, ext_patt, '', 'g') cline,
+      --	regexp_replace(regexp_replace(cln, '\u001cё', 'о'), ext_patt||'|ь$', '', 'g') cline,
+      *  from arrs
+), rows3 as (
+    select
+      array[numrange(1, 1+length(base))] locs,
+	  try_alters(cbase) tryalt,
+      * from rows1
+    where not clalparent ~ (try_alters(cbase)||'.*')-- and word in (24087)
+)
+select * from rows3;
+, ins as (
+--  insert into affix_appl (offs, len, orig, affix, word, parent_word)
+    select
+		0 as id,
+		1 offs, length(base) len, base orig, 657 affix, word, pid parent_word from rows3 r
+--	returning *
+)
+--insert into composed_affix_appl (word, affappl1, affix1, val_locs, aff_locs)
+  select ins.word, ins.id, ins.affix, rows3.locs, rows3.locs from ins join rows3 on ins.word = rows3.word;

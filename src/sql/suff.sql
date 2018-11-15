@@ -179,12 +179,10 @@ WITH
 		select
 			regexp_replace(m[typeind], '[´\u001b-\u001f([\]]', '', 'g') mc,-- m[typeind] orig,
 			msel.*
-		--	position(m[typeind] in substr(line, goffs)) + goffs-1 offs,
-		--	length(m[typeind]), line
 		from msel
 	)
 --	select * from msel;
---	insert into affix a (value, qty, kind) 
+--	insert into affix (value, qty, kind) 
 select mc, count(id) qty, (ARRAY['infix','prefix','suffix'])[typeind-1] kind from sel
 where not exists(select from affix a where a.value=mc and a.kind=kind)
 group by typeind, mc order by qty desc
