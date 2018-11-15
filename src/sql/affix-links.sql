@@ -94,7 +94,7 @@ WHERE
 select * from rows;
 --update composed_affix_appl caa set parent=par_id from rows where caa.parent is null and id=der_id;
 
-select * from composed_affix_appl where parent is null;
+select * from composed_affix_appl where parent is not null;
 select * from composite_affix_application where parent is null;
 
 ---find wrong links
@@ -138,3 +138,24 @@ group BY
 order by qty desc
   ;
 
+SELECT count (*) qty,
+  min(p_caa.affix_vals) AS par_aff, 
+  string_agg(distinct regexp_replace(p_caa.line, '[´\u001b-\u001f[\]]', '', 'g'), '; ') AS pline,
+  min(d_caa.affix_vals) AS der_aff,
+  string_agg(distinct regexp_replace(d_caa.line, '[´\u001b-\u001f[\]]', '', 'g'), '; ') AS dline
+FROM 
+  composite_affix_application p_caa, 
+  composite_affix_application d_caa
+WHERE 
+  d_caa.parent = p_caa.id
+group BY
+  p_caa.affices, 
+  d_caa.affices
+order by qty desc
+  ;
+
+select count (*) from composite_affix_application group by affices;
+
+select count (*) from affix_appl GROUP by affix;
+
+select * from affix_appl where affix > 657;

@@ -117,5 +117,3 @@ from vars, word
 	and line ~ vars.regex
 order by id
 ;
-
-зл-оII,нареч.
