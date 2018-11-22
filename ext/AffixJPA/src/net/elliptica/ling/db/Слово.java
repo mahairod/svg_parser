@@ -15,11 +15,14 @@ import java.util.Set;
 import javax.persistence.Basic;
 import javax.persistence.CascadeType;
 import javax.persistence.Column;
+import javax.persistence.Convert;
 import javax.persistence.Entity;
 import javax.persistence.GeneratedValue;
 import javax.persistence.GenerationType;
 import javax.persistence.Id;
+import javax.persistence.JoinColumn;
 import javax.persistence.Lob;
+import javax.persistence.ManyToOne;
 import javax.persistence.NamedQueries;
 import javax.persistence.NamedQuery;
 import javax.persistence.OneToMany;
@@ -27,6 +30,8 @@ import javax.persistence.Table;
 import javax.validation.constraints.NotNull;
 import javax.validation.constraints.Size;
 import me.astafiev.веб.сущности.JPAEntity;
+import net.elliptica.ling.PartOfSpeach;
+import net.elliptica.ling.PoSConverter;
 
 /**
  *
@@ -52,39 +57,64 @@ import me.astafiev.веб.сущности.JPAEntity;
 	@NamedQuery(name = "Слово.findByFlags", query = "SELECT сл FROM Слово сл WHERE сл.flags = :flags")})
 public class Слово extends JPAEntity implements Serializable {
 	private static final long serialVersionUID = 1L;
+
+	@Convert(converter = PoSConverter.class)
+	private PartOfSpeach pos;
+
+	@Convert(converter = PoSConverter.class)
+	private PartOfSpeach pos2;
+
 	@Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Basic(optional = false)
+	@GeneratedValue(strategy = GenerationType.IDENTITY)
+	@Basic(optional = false)
 	private Integer id;
+
 	@Basic(optional = false)
-    @NotNull
-    @Size(min = 1, max = 2147483647)
+	@NotNull
+	@Size(min = 1, max = 2147483647)
 	private String line;
+
 	@Basic(optional = false)
-    @NotNull
+	@NotNull
 	private double x;
+
 	@Basic(optional = false)
-    @NotNull
+	@NotNull
 	private double y;
+
 	@Size(max = 2147483647)
 	private String text;
+
 	@Basic(optional = false)
-    @NotNull
+	@NotNull
 	private double len;
+
 	private Boolean hyphen;
+
 	private Boolean deprecated;
+
 	@Size(max = 2147483647)
 	private String notes;
+
 	@Size(max = 2147483647)
 	private String alternation;
+
 	@Size(max = 2147483647)
-    @Column(name = "alt_rest")
+	@Column(name = "alt_rest")
 	private String altRest;
+
 	private Character variant;
+
 	private Character version;
+
 	private Boolean flags;
+
+	@OneToMany(cascade = CascadeType.ALL, mappedBy = "word")
+	private Set<ComposedAffixAppl> composedAffixApplSet;
+
 	@OneToMany(cascade = CascadeType.ALL, mappedBy = "word")
 	private Set<AffixApplication> аффиксаПриложения;
+
 	@OneToMany(cascade = CascadeType.ALL, mappedBy = "parentWord")
 	private Set<AffixApplication> аффиксаПорождения;
 
@@ -254,6 +284,30 @@ public class Слово extends JPAEntity implements Serializable {
 	@Override
 	public String toString() {
 		return "net.elliptica.svg.db.Слово[ id=" + id + " ]";
+	}
+
+	public PartOfSpeach getPos() {
+		return pos;
+	}
+
+	public void setPos(PartOfSpeach pos) {
+		this.pos = pos;
+	}
+
+	public PartOfSpeach getPos2() {
+		return pos2;
+	}
+
+	public void setPos2(PartOfSpeach pos2) {
+		this.pos2 = pos2;
+	}
+
+	public Set<ComposedAffixAppl> getComposedAffixApplSet() {
+		return composedAffixApplSet;
+	}
+
+	public void setComposedAffixApplSet(Set<ComposedAffixAppl> composedAffixApplSet) {
+		this.composedAffixApplSet = composedAffixApplSet;
 	}
 
 }

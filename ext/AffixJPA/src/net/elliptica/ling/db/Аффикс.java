@@ -24,6 +24,8 @@ import javax.persistence.NamedQueries;
 import javax.persistence.NamedQuery;
 import javax.persistence.OneToMany;
 import javax.persistence.Table;
+import javax.validation.constraints.NotNull;
+import javax.validation.constraints.Size;
 import me.astafiev.веб.сущности.JPAEntity;
 
 /**
@@ -40,17 +42,24 @@ import me.astafiev.веб.сущности.JPAEntity;
 	@NamedQuery(name = "Аффикс.findByKind", query = "SELECT a FROM Аффикс a WHERE a.kind = :kind")})
 public class Аффикс extends JPAEntity implements Serializable {
 	private static final long serialVersionUID = 1L;
+
 	@Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Basic(optional = false)
+	@GeneratedValue(strategy = GenerationType.IDENTITY)
+	@Basic(optional = false)
 	private Integer id;
+
 	@Basic(optional = false)
 	@Column(name = "value")
 	private String val;
+
 	@Basic(optional = false)
 	private int qty;
+
 	@Basic(optional = false)
+	@NotNull
+	@Size(min = 1, max = 6)
 	private String kind;
+
 	@OneToMany(cascade = CascadeType.ALL, mappedBy = "аффикс")
 	private Set<AffixApplication> аффиксаПриложениеSet;
 
@@ -131,6 +140,12 @@ public class Аффикс extends JPAEntity implements Serializable {
 	@Override
 	public String toString() {
 		return "net.elliptica.svg.db.Аффикс[ id=" + id + " ]";
+	}
+
+	public Аффикс(Integer id, int qty, String kind) {
+		this.id = id;
+		this.qty = qty;
+		this.kind = kind;
 	}
 
 }

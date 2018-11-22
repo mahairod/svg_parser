@@ -11,7 +11,9 @@
 package net.elliptica.ling.db;
 
 import java.io.Serializable;
+import java.util.Set;
 import javax.persistence.Basic;
+import javax.persistence.CascadeType;
 import javax.persistence.Entity;
 import javax.persistence.GeneratedValue;
 import javax.persistence.GenerationType;
@@ -20,6 +22,7 @@ import javax.persistence.JoinColumn;
 import javax.persistence.ManyToOne;
 import javax.persistence.NamedQueries;
 import javax.persistence.NamedQuery;
+import javax.persistence.OneToMany;
 import javax.persistence.Table;
 import javax.validation.constraints.NotNull;
 import javax.validation.constraints.Size;
@@ -39,30 +42,44 @@ import me.astafiev.веб.сущности.JPAEntity;
 	@NamedQuery(name = "AffixApplication.findById", query = "SELECT \u0430 FROM AffixApplication \u0430 WHERE \u0430.id = :id")})
 public class AffixApplication extends JPAEntity implements Serializable {
 	private static final long serialVersionUID = 1L;
+
 	@Basic(optional = false)
-    @NotNull
+	@NotNull
 	private short offs;
+
 	@Basic(optional = false)
-    @NotNull
+	@NotNull
 	private short len;
+
 	@Basic(optional = false)
-    @NotNull
-    @Size(min = 1, max = 40)
+	@NotNull
+	@Size(min = 1, max = 40)
 	private String orig;
 
 	@JoinColumn(name = "affix", referencedColumnName = "id")
-    @ManyToOne(optional = false)
+	@ManyToOne(optional = false)
 	private Аффикс аффикс;
 
+	@OneToMany(cascade = CascadeType.ALL, mappedBy = "affappl1")
+	private Set<ComposedAffixAppl> composedAffixApplSet;
+
+	@OneToMany(mappedBy = "affappl2")
+	private Set<ComposedAffixAppl> composedAffixApplSet1;
+
+	@OneToMany(mappedBy = "affappl3")
+	private Set<ComposedAffixAppl> composedAffixApplSet2;
+
 	@Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Basic(optional = false)
+	@GeneratedValue(strategy = GenerationType.IDENTITY)
+	@Basic(optional = false)
 	private Integer id;
+
 	@JoinColumn(name = "word", referencedColumnName = "id")
-    @ManyToOne(optional = false)
+	@ManyToOne(optional = false)
 	private Слово word;
+
 	@JoinColumn(name = "parent_word", referencedColumnName = "id")
-    @ManyToOne(optional = false)
+	@ManyToOne(optional = false)
 	private Слово parentWord;
 
 	public AffixApplication() {
@@ -158,6 +175,30 @@ public class AffixApplication extends JPAEntity implements Serializable {
 	@Override
 	public String toString() {
 		return "net.elliptica.svg.db.AffixApplication[ id=" + id + " ]";
+	}
+
+	public Set<ComposedAffixAppl> getComposedAffixApplSet() {
+		return composedAffixApplSet;
+	}
+
+	public void setComposedAffixApplSet(Set<ComposedAffixAppl> composedAffixApplSet) {
+		this.composedAffixApplSet = composedAffixApplSet;
+	}
+
+	public Set<ComposedAffixAppl> getComposedAffixApplSet1() {
+		return composedAffixApplSet1;
+	}
+
+	public void setComposedAffixApplSet1(Set<ComposedAffixAppl> composedAffixApplSet1) {
+		this.composedAffixApplSet1 = composedAffixApplSet1;
+	}
+
+	public Set<ComposedAffixAppl> getComposedAffixApplSet2() {
+		return composedAffixApplSet2;
+	}
+
+	public void setComposedAffixApplSet2(Set<ComposedAffixAppl> composedAffixApplSet2) {
+		this.composedAffixApplSet2 = composedAffixApplSet2;
 	}
 
 }
