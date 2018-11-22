@@ -292,8 +292,8 @@ public class GrafCanvas extends JPanel {
 		g.setColor(w != currentWord ? color : Color.MAGENTA);
 		g.drawRoundRect(sp.x, sp.y, ep.x, ep.y, 4, 4);
 		g.setColor(Color.BLACK);
-		g.drawString(new LineIterator(w.getLine()), sp.x, sp.y+11);
-//		g.drawString(w.getLine().replaceAll("[´]", ""), sp.x, sp.y+11);
+//		g.drawString(new LineIterator(w.getLine()), sp.x, sp.y+11);
+		g.drawString(w.getLine().replaceAll("[´]", ""), sp.x, sp.y+11);
 	}
 	
 	

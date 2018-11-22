@@ -180,7 +180,7 @@ public class Word implements Comparable<Word>, Serializable {
 
 	@Override
 	public String toString() {
-		String main = "{" + line + '}' + (int)x + "/" + (int)y;
+		String main = "{" + Integer.toString(id) + ":" + line + '}' + (int)x + "/" + (int)y;
 		if (base!=null){
 			main = main + " -> " + base.toString();
 		}
