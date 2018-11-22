@@ -1,3 +1,9 @@
 /build/
 /dist
 /nbproject/private/
+/ext/AffixJPA/nbproject/private
+/ext/AffixRepairBeans/build*
+/ext/AffixRepairBeans/dist
+/ext/AffixJPA/build*
+/ext/AffixJPA/dist
+/ext/AffixRepairBeans/nbproject/private/
