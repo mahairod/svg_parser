@@ -7,19 +7,43 @@
  * Данный программный код является собственностью Астафьева Антона Александровича
  * и может быть использован только с его личного разрешения
  */
-package net.elliptica.ling.ejb;
 
-import javax.ejb.Remote;
-import net.elliptica.ling.db.Слово;
+package net.elliptica.ling.db;
+
+import java.io.Serializable;
 
 /**
  *
  * @author Антон Астафьев <anton@astafiev.me> (Anton Astafiev)
  */
-@Remote
-public interface AffixRepairBeanRemote {
+public class NumRange implements Serializable {
 
-	void updateWordLine(final Слово word, final String newLine) throws AffixConstraintsFailure;
-	void updateWordLine(final String newLine, final Слово word) throws AffixConstraintsFailure;
+	Integer start;
+	Integer stop;
+
+	public NumRange(Integer start, Integer stop) {
+		this.start = start;
+		this.stop = stop;
+	}
+
+	public NumRange(String start, String stop) {
+		this.start = toInt(start);
+		this.stop = toInt(stop);
+	}
 	
+	private static Integer toInt(String v) {
+		return v==null? null : Integer.decode(v);
+	}
+
+	@Override
+	public String toString() {
+		StringBuilder sb = new StringBuilder(10);
+		sb.append('[');
+		if (start != null) sb.append(start);
+		sb.append(',');
+		if (stop != null) sb.append(stop);
+		sb.append(')');
+		return sb.toString();
+	}
+
 }

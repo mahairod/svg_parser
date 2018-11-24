@@ -85,11 +85,11 @@ public class Аффикс extends JPAEntity implements Serializable {
 		this.id = id;
 	}
 
-	public String getValue() {
+	public String getVal() {
 		return val;
 	}
 
-	public void setValue(String value) {
+	public void setVal(String value) {
 		this.val = value;
 	}
 

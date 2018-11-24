@@ -12,20 +12,10 @@ package net.elliptica.ling.db;
 
 import java.io.Serializable;
 import java.util.Set;
-import javax.persistence.Basic;
-import javax.persistence.Column;
-import javax.persistence.Entity;
-import javax.persistence.GeneratedValue;
-import javax.persistence.GenerationType;
-import javax.persistence.Id;
-import javax.persistence.JoinColumn;
-import javax.persistence.ManyToOne;
-import javax.persistence.NamedQueries;
-import javax.persistence.NamedQuery;
-import javax.persistence.OneToMany;
-import javax.persistence.Table;
+import javax.persistence.*;
 import javax.validation.constraints.NotNull;
 import me.astafiev.веб.сущности.JPAEntity;
+import net.elliptica.ling.RangeArrConverter;
 
 /**
  *
@@ -38,15 +28,17 @@ import me.astafiev.веб.сущности.JPAEntity;
 public class ComposedAffixAppl extends JPAEntity implements Serializable {
 	private static final long serialVersionUID = 1L;
 
+	@Convert(converter = RangeArrConverter.class)
 	@Basic(optional = false)
 	@NotNull
 	@Column(name = "val_locs")
-	private Serializable valLocs;
+	private NumRange[] valLocs;
 
+	@Convert(converter = RangeArrConverter.class)
 	@Basic(optional = false)
 	@NotNull
 	@Column(name = "aff_locs")
-	private Serializable affLocs;
+	private NumRange[] affLocs;
 
 	@Id
 	@GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -78,7 +70,7 @@ public class ComposedAffixAppl extends JPAEntity implements Serializable {
 	private AffixApplication affappl3;
 
 	@OneToMany(mappedBy = "parent")
-	private Set<ComposedAffixAppl> composedAffixApplSet;
+	private Set<ComposedAffixAppl> children;
 
 	@JoinColumn(name = "word", referencedColumnName = "id")
 	@ManyToOne(optional = false)
@@ -95,26 +87,26 @@ public class ComposedAffixAppl extends JPAEntity implements Serializable {
 		this.id = id;
 	}
 
-	public ComposedAffixAppl(Integer id, Слово word, Serializable valLocs, Serializable affLocs) {
+	public ComposedAffixAppl(Integer id, Слово word, NumRange[] valLocs, NumRange[] affLocs) {
 		this.id = id;
 		this.word = word;
 		this.valLocs = valLocs;
 		this.affLocs = affLocs;
 	}
 
-	public Serializable getValLocs() {
+	public NumRange[] getValLocs() {
 		return valLocs;
 	}
 
-	public void setValLocs(Serializable valLocs) {
+	public void setValLocs(NumRange[] valLocs) {
 		this.valLocs = valLocs;
 	}
 
-	public Serializable getAffLocs() {
+	public NumRange[] getAffLocs() {
 		return affLocs;
 	}
 
-	public void setAffLocs(Serializable affLocs) {
+	public void setAffLocs(NumRange[] affLocs) {
 		this.affLocs = affLocs;
 	}
 
@@ -155,7 +147,10 @@ public class ComposedAffixAppl extends JPAEntity implements Serializable {
 	}
 
 	public void setAffappl1(AffixApplication affappl1) {
+		if (this.affappl1 == affappl1) return;
+		this.affappl1.getComposedAffixApplSet1().remove(this);
 		this.affappl1 = affappl1;
+		affappl1.getComposedAffixApplSet1().add(this);
 	}
 
 	public AffixApplication getAffappl2() {
@@ -163,7 +158,10 @@ public class ComposedAffixAppl extends JPAEntity implements Serializable {
 	}
 
 	public void setAffappl2(AffixApplication affappl2) {
+		if (this.affappl2 == affappl2) return;
+		this.affappl2.getComposedAffixApplSet1().remove(this);
 		this.affappl2 = affappl2;
+		affappl2.getComposedAffixApplSet2().add(this);
 	}
 
 	public AffixApplication getAffappl3() {
@@ -171,15 +169,18 @@ public class ComposedAffixAppl extends JPAEntity implements Serializable {
 	}
 
 	public void setAffappl3(AffixApplication affappl3) {
+		if (this.affappl3 == affappl3) return;
+		this.affappl3.getComposedAffixApplSet1().remove(this);
 		this.affappl3 = affappl3;
+		affappl3.getComposedAffixApplSet3().add(this);
 	}
 
-	public Set<ComposedAffixAppl> getComposedAffixApplSet() {
-		return composedAffixApplSet;
+	public Set<ComposedAffixAppl> getChildren() {
+		return children;
 	}
 
-	public void setComposedAffixApplSet(Set<ComposedAffixAppl> composedAffixApplSet) {
-		this.composedAffixApplSet = composedAffixApplSet;
+	public void setChildren(Set<ComposedAffixAppl> children) {
+		this.children = children;
 	}
 
 	public ComposedAffixAppl getParent() {

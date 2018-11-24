@@ -23,6 +23,7 @@ import net.elliptica.ling.db.Слово;
  */
 @Stateless
 public class AffixRepairBean implements AffixRepairBeanRemote, AffixRepairBeanLocal {
+
 	@PersistenceContext(unitName = "AffixRepairBeansPU")
 	private EntityManager em;
 
@@ -35,7 +36,13 @@ public class AffixRepairBean implements AffixRepairBeanRemote, AffixRepairBeanLo
 
 	@Override
 	@Transactional
-	public void updateWordLine(final Слово word, final String newLine) {
+	public void updateWordLine(final Слово word, final String newLine) throws AffixConstraintsFailure {
+		repairer.updateWordLine(word, newLine);
+	}
+
+	@Override
+	@Transactional
+	public void updateWordLine(String newLine, Слово word) throws AffixConstraintsFailure {
 		repairer.updateWordLine(word, newLine);
 	}
 

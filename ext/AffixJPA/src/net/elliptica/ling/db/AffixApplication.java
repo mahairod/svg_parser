@@ -61,13 +61,13 @@ public class AffixApplication extends JPAEntity implements Serializable {
 	private Аффикс аффикс;
 
 	@OneToMany(cascade = CascadeType.ALL, mappedBy = "affappl1")
-	private Set<ComposedAffixAppl> composedAffixApplSet;
-
-	@OneToMany(mappedBy = "affappl2")
 	private Set<ComposedAffixAppl> composedAffixApplSet1;
 
-	@OneToMany(mappedBy = "affappl3")
+	@OneToMany(mappedBy = "affappl2")
 	private Set<ComposedAffixAppl> composedAffixApplSet2;
+
+	@OneToMany(mappedBy = "affappl3")
+	private Set<ComposedAffixAppl> composedAffixApplSet3;
 
 	@Id
 	@GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -94,6 +94,10 @@ public class AffixApplication extends JPAEntity implements Serializable {
 		this.offs = offs;
 		this.len = len;
 		this.orig = orig;
+	}
+
+	public static AffixApplication fromJava(short offs, short len, String orig) {
+		return new AffixApplication(null, (short) (offs + 1), len, orig);
 	}
 
 	public short getOffs() {
@@ -149,7 +153,10 @@ public class AffixApplication extends JPAEntity implements Serializable {
 	}
 
 	public void setАффикс(Аффикс аффикс) {
+		if (this.аффикс == аффикс) return;
+		this.аффикс.getАффиксаПриложениеSet().remove(this);
 		this.аффикс = аффикс;
+		аффикс.getАффиксаПриложениеSet().add(this);
 	}
 
 	@Override
@@ -177,14 +184,6 @@ public class AffixApplication extends JPAEntity implements Serializable {
 		return "net.elliptica.svg.db.AffixApplication[ id=" + id + " ]";
 	}
 
-	public Set<ComposedAffixAppl> getComposedAffixApplSet() {
-		return composedAffixApplSet;
-	}
-
-	public void setComposedAffixApplSet(Set<ComposedAffixAppl> composedAffixApplSet) {
-		this.composedAffixApplSet = composedAffixApplSet;
-	}
-
 	public Set<ComposedAffixAppl> getComposedAffixApplSet1() {
 		return composedAffixApplSet1;
 	}
@@ -199,6 +198,14 @@ public class AffixApplication extends JPAEntity implements Serializable {
 
 	public void setComposedAffixApplSet2(Set<ComposedAffixAppl> composedAffixApplSet2) {
 		this.composedAffixApplSet2 = composedAffixApplSet2;
+	}
+
+	public Set<ComposedAffixAppl> getComposedAffixApplSet3() {
+		return composedAffixApplSet3;
+	}
+
+	public void setComposedAffixApplSet3(Set<ComposedAffixAppl> composedAffixApplSet3) {
+		this.composedAffixApplSet3 = composedAffixApplSet3;
 	}
 
 }

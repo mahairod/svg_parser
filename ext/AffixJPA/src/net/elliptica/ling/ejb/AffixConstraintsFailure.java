@@ -9,17 +9,28 @@
  */
 package net.elliptica.ling.ejb;
 
-import javax.ejb.Remote;
-import net.elliptica.ling.db.Слово;
-
 /**
  *
  * @author Антон Астафьев <anton@astafiev.me> (Anton Astafiev)
  */
-@Remote
-public interface AffixRepairBeanRemote {
+public class AffixConstraintsFailure extends Exception {
 
-	void updateWordLine(final Слово word, final String newLine) throws AffixConstraintsFailure;
-	void updateWordLine(final String newLine, final Слово word) throws AffixConstraintsFailure;
-	
+	/**
+	 * Creates a new instance of <code>AffixConstraintsFailure</code> without detail message.
+	 */
+	public AffixConstraintsFailure() {
+	}
+
+	/**
+	 * Constructs an instance of <code>AffixConstraintsFailure</code> with the specified detail message.
+	 *
+	 * @param msg the detail message.
+	 */
+	public AffixConstraintsFailure(String msg) {
+		super(msg);
+	}
+
+	public AffixConstraintsFailure(String message, Throwable cause) {
+		super(message, cause);
+	}
 }
