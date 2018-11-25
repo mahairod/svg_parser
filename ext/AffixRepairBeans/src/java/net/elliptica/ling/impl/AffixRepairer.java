@@ -82,15 +82,7 @@ public class AffixRepairer {
 		oldRest.removeAll(curAffices.keySet());
 		curCross.retainAll(oldAffices.keySet());
 
-		Set<AffixApplication> restAas = oldRest.stream()
-				.map(oldAffices::get)
-				.collect(Collectors.toSet());
-		for (AffixApplication aa: restAas) {
-			em.remove(aa);
-			word.getАффиксаПриложения().remove(aa);
-		}
-
-		Слово parentWord = em.createNamedQuery("Слово.findById", Слово.class).setParameter("id", 0).getSingleResult();
+//		Слово parentWord = em.createNamedQuery("Слово.findById", Слово.class).setParameter("id", 0).getSingleResult();
 
 		Map<String,AffixApplication> resultAffApps = new TreeMap<>();
 		Map<String,AffixApplication> newAffApps = new HashMap<>(curCross.size());
@@ -109,13 +101,14 @@ public class AffixRepairer {
 				newAffApps.put(en.getKey(), AffixApplication.copy(maa, aff, word));
 			}
 		}
+
 		for (Entry<String,AffixApplication> en: newAffApps.entrySet()) {
 			AffixApplication naa = en.getValue();
 			// add new
 			AffixApplication aa = new AffixApplication(null, naa.getOffs(), naa.getLen(), naa.getOrig());
 			AffixApplication.AFF_SETTER.execute(aa, naa.getАффикс());
 			AffixApplication.WORD_SETTER.execute(aa, naa.getWord());
-			AffixApplication.PAR_WORD_SETTER.execute(aa, parentWord);
+//			AffixApplication.PAR_WORD_SETTER.execute(aa, parentWord);
 			em.persist(aa);
 			resultAffApps.put(en.getKey(), aa);
 		}
@@ -143,6 +136,12 @@ public class AffixRepairer {
 			caa.setValLocs(val_locs);
 		}
 		
+		Set<AffixApplication> restAas = oldRest.stream().map(oldAffices::get).collect(Collectors.toSet());
+		for (AffixApplication aa: restAas) {
+			em.remove(aa);
+			word.getАффиксаПриложения().remove(aa);
+		}
+
 		word.setLine(newLine);
 	}
 

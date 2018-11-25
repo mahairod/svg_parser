@@ -88,7 +88,7 @@ public class AffixApplication extends JPAEntity implements Serializable {
 	private Слово word;
 
 	@JoinColumn(name = "parent_word", referencedColumnName = "id")
-	@ManyToOne(optional = false)
+	@ManyToOne(optional = true)
 	private Слово parentWord;
 
 	public AffixApplication() {
