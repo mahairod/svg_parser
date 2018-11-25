@@ -11,9 +11,11 @@
 package net.elliptica.ling.db;
 
 import java.io.Serializable;
+import java.util.HashSet;
 import java.util.Set;
 import javax.persistence.*;
 import javax.validation.constraints.NotNull;
+import me.astafiev.веб.инструменты.MultiLinkUpdate;
 import me.astafiev.веб.сущности.JPAEntity;
 import net.elliptica.ling.RangeArrConverter;
 
@@ -27,6 +29,17 @@ import net.elliptica.ling.RangeArrConverter;
 	@NamedQuery(name = "ComposedAffixAppl.findAll", query = "SELECT c FROM ComposedAffixAppl c")})
 public class ComposedAffixAppl extends JPAEntity implements Serializable {
 	private static final long serialVersionUID = 1L;
+
+	public static MultiLinkUpdate<ComposedAffixAppl,AffixApplication> affappl1Setter
+			= new MultiLinkUpdate<>(ComposedAffixAppl::getAffappl1, ComposedAffixAppl::setAffappl1, AffixApplication::getComposedAffixApplSet1);
+	public static MultiLinkUpdate<ComposedAffixAppl,AffixApplication> affappl2Setter
+			= new MultiLinkUpdate<>(ComposedAffixAppl::getAffappl2, ComposedAffixAppl::setAffappl2, AffixApplication::getComposedAffixApplSet2);
+	public static MultiLinkUpdate<ComposedAffixAppl,AffixApplication> affappl3Setter
+			= new MultiLinkUpdate<>(ComposedAffixAppl::getAffappl3, ComposedAffixAppl::setAffappl3, AffixApplication::getComposedAffixApplSet3);
+	public static MultiLinkUpdate<ComposedAffixAppl,Слово> wordSetter
+			= new MultiLinkUpdate<>(ComposedAffixAppl::getWord, ComposedAffixAppl::setWord, Слово::getCompAffixApplications);
+	public static MultiLinkUpdate<ComposedAffixAppl,ComposedAffixAppl> parentSetter
+			= new MultiLinkUpdate<>(ComposedAffixAppl::getParent, ComposedAffixAppl::setParent, ComposedAffixAppl::getChildren);
 
 	@Convert(converter = RangeArrConverter.class)
 	@Basic(optional = false)
@@ -70,7 +83,7 @@ public class ComposedAffixAppl extends JPAEntity implements Serializable {
 	private AffixApplication affappl3;
 
 	@OneToMany(mappedBy = "parent")
-	private Set<ComposedAffixAppl> children;
+	private Set<ComposedAffixAppl> children = new HashSet<>();
 
 	@JoinColumn(name = "word", referencedColumnName = "id")
 	@ManyToOne(optional = false)
@@ -146,40 +159,31 @@ public class ComposedAffixAppl extends JPAEntity implements Serializable {
 		return affappl1;
 	}
 
-	public void setAffappl1(AffixApplication affappl1) {
-		if (this.affappl1 == affappl1) return;
-		this.affappl1.getComposedAffixApplSet1().remove(this);
+	private void setAffappl1(AffixApplication affappl1) {
 		this.affappl1 = affappl1;
-		affappl1.getComposedAffixApplSet1().add(this);
 	}
 
 	public AffixApplication getAffappl2() {
 		return affappl2;
 	}
 
-	public void setAffappl2(AffixApplication affappl2) {
-		if (this.affappl2 == affappl2) return;
-		this.affappl2.getComposedAffixApplSet1().remove(this);
+	private void setAffappl2(AffixApplication affappl2) {
 		this.affappl2 = affappl2;
-		affappl2.getComposedAffixApplSet2().add(this);
 	}
 
 	public AffixApplication getAffappl3() {
 		return affappl3;
 	}
 
-	public void setAffappl3(AffixApplication affappl3) {
-		if (this.affappl3 == affappl3) return;
-		this.affappl3.getComposedAffixApplSet1().remove(this);
+	private void setAffappl3(AffixApplication affappl3) {
 		this.affappl3 = affappl3;
-		affappl3.getComposedAffixApplSet3().add(this);
 	}
 
 	public Set<ComposedAffixAppl> getChildren() {
 		return children;
 	}
 
-	public void setChildren(Set<ComposedAffixAppl> children) {
+	private void setChildren(Set<ComposedAffixAppl> children) {
 		this.children = children;
 	}
 
@@ -187,7 +191,7 @@ public class ComposedAffixAppl extends JPAEntity implements Serializable {
 		return parent;
 	}
 
-	public void setParent(ComposedAffixAppl parent) {
+	private void setParent(ComposedAffixAppl parent) {
 		this.parent = parent;
 	}
 

@@ -23,7 +23,7 @@ import org.postgresql.util.PGobject;
  * @автор Антон Александрович Астафьев {@буквально <anton@astafiev.me>} (Anton Astafiev)
  */
 @Converter
-public class PoSConverter implements AttributeConverter<PartOfSpeach, PGobject> {
+public class PoSConverter implements AttributeConverter<PartOfSpeach, Object> {
 
 	@Override
 	public PGobject convertToDatabaseColumn(PartOfSpeach атрибут) {
@@ -41,9 +41,11 @@ public class PoSConverter implements AttributeConverter<PartOfSpeach, PGobject> 
 	}
 
 	@Override
-	public PartOfSpeach convertToEntityAttribute(PGobject данныеБД) {
-		if (данныеБД instanceof PGobject){
-			return PartOfSpeach.valueOf(данныеБД.getValue());
+	public PartOfSpeach convertToEntityAttribute(Object данныеБД) {
+		if (данныеБД instanceof PGobject) {
+			return PartOfSpeach.valueOf(((PGobject)данныеБД).getValue());
+		} else if (данныеБД != null) {
+			return PartOfSpeach.valueOf(данныеБД.toString());
 		} else {
 			return null;
 		}

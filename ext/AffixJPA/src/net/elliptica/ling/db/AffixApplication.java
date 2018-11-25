@@ -11,6 +11,7 @@
 package net.elliptica.ling.db;
 
 import java.io.Serializable;
+import java.util.HashSet;
 import java.util.Set;
 import javax.persistence.Basic;
 import javax.persistence.CascadeType;
@@ -26,6 +27,7 @@ import javax.persistence.OneToMany;
 import javax.persistence.Table;
 import javax.validation.constraints.NotNull;
 import javax.validation.constraints.Size;
+import me.astafiev.веб.инструменты.MultiLinkUpdate;
 import me.astafiev.веб.сущности.JPAEntity;
 
 /**
@@ -42,6 +44,13 @@ import me.astafiev.веб.сущности.JPAEntity;
 	@NamedQuery(name = "AffixApplication.findById", query = "SELECT \u0430 FROM AffixApplication \u0430 WHERE \u0430.id = :id")})
 public class AffixApplication extends JPAEntity implements Serializable {
 	private static final long serialVersionUID = 1L;
+
+	public static MultiLinkUpdate<AffixApplication,Аффикс> AFF_SETTER
+			= new MultiLinkUpdate<>(AffixApplication::getАффикс, AffixApplication::setАффикс, Аффикс::getАффиксаПриложения);
+	public static MultiLinkUpdate<AffixApplication,Слово> WORD_SETTER
+			= new MultiLinkUpdate<>(AffixApplication::getWord, AffixApplication::setWord, Слово::getАффиксаПриложения);
+	public static MultiLinkUpdate<AffixApplication,Слово> PAR_WORD_SETTER
+			= new MultiLinkUpdate<>(AffixApplication::getParentWord, AffixApplication::setParentWord, Слово::getАффиксаПорождения);
 
 	@Basic(optional = false)
 	@NotNull
@@ -61,13 +70,13 @@ public class AffixApplication extends JPAEntity implements Serializable {
 	private Аффикс аффикс;
 
 	@OneToMany(cascade = CascadeType.ALL, mappedBy = "affappl1")
-	private Set<ComposedAffixAppl> composedAffixApplSet1;
+	private Set<ComposedAffixAppl> composedAffixApplSet1 = new HashSet<>();
 
 	@OneToMany(mappedBy = "affappl2")
-	private Set<ComposedAffixAppl> composedAffixApplSet2;
+	private Set<ComposedAffixAppl> composedAffixApplSet2 = new HashSet<>();
 
 	@OneToMany(mappedBy = "affappl3")
-	private Set<ComposedAffixAppl> composedAffixApplSet3;
+	private Set<ComposedAffixAppl> composedAffixApplSet3 = new HashSet<>();
 
 	@Id
 	@GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -98,6 +107,13 @@ public class AffixApplication extends JPAEntity implements Serializable {
 
 	public static AffixApplication fromJava(short offs, short len, String orig) {
 		return new AffixApplication(null, (short) (offs + 1), len, orig);
+	}
+
+	public static AffixApplication copy(AffixApplication orig, Аффикс aff, Слово word) {
+		AffixApplication aa = new AffixApplication(null, orig.offs, orig.len, orig.orig);
+		aa.setАффикс(aff);
+		aa.setWord(word);
+		return aa;
 	}
 
 	public short getOffs() {
@@ -136,7 +152,7 @@ public class AffixApplication extends JPAEntity implements Serializable {
 		return word;
 	}
 
-	public void setWord(Слово word) {
+	private void setWord(Слово word) {
 		this.word = word;
 	}
 
@@ -144,7 +160,7 @@ public class AffixApplication extends JPAEntity implements Serializable {
 		return parentWord;
 	}
 
-	public void setParentWord(Слово parentWord) {
+	private void setParentWord(Слово parentWord) {
 		this.parentWord = parentWord;
 	}
 
@@ -152,11 +168,8 @@ public class AffixApplication extends JPAEntity implements Serializable {
 		return аффикс;
 	}
 
-	public void setАффикс(Аффикс аффикс) {
-		if (this.аффикс == аффикс) return;
-		this.аффикс.getАффиксаПриложениеSet().remove(this);
+	private void setАффикс(Аффикс аффикс) {
 		this.аффикс = аффикс;
-		аффикс.getАффиксаПриложениеSet().add(this);
 	}
 
 	@Override
@@ -188,7 +201,7 @@ public class AffixApplication extends JPAEntity implements Serializable {
 		return composedAffixApplSet1;
 	}
 
-	public void setComposedAffixApplSet1(Set<ComposedAffixAppl> composedAffixApplSet1) {
+	private void setComposedAffixApplSet1(Set<ComposedAffixAppl> composedAffixApplSet1) {
 		this.composedAffixApplSet1 = composedAffixApplSet1;
 	}
 
@@ -196,7 +209,7 @@ public class AffixApplication extends JPAEntity implements Serializable {
 		return composedAffixApplSet2;
 	}
 
-	public void setComposedAffixApplSet2(Set<ComposedAffixAppl> composedAffixApplSet2) {
+	private void setComposedAffixApplSet2(Set<ComposedAffixAppl> composedAffixApplSet2) {
 		this.composedAffixApplSet2 = composedAffixApplSet2;
 	}
 
@@ -204,7 +217,7 @@ public class AffixApplication extends JPAEntity implements Serializable {
 		return composedAffixApplSet3;
 	}
 
-	public void setComposedAffixApplSet3(Set<ComposedAffixAppl> composedAffixApplSet3) {
+	private void setComposedAffixApplSet3(Set<ComposedAffixAppl> composedAffixApplSet3) {
 		this.composedAffixApplSet3 = composedAffixApplSet3;
 	}
 

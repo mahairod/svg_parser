@@ -12,6 +12,7 @@ package net.elliptica.ling.db;
 
 import java.io.Serializable;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.Set;
 import javax.persistence.Basic;
 import javax.persistence.CascadeType;
@@ -61,7 +62,7 @@ public class Аффикс extends JPAEntity implements Serializable {
 	private String kind;
 
 	@OneToMany(cascade = CascadeType.ALL, mappedBy = "аффикс")
-	private Set<AffixApplication> аффиксаПриложениеSet;
+	private Set<AffixApplication> аффиксаПриложения = new HashSet<>();
 
 	public Аффикс() {
 	}
@@ -109,12 +110,12 @@ public class Аффикс extends JPAEntity implements Serializable {
 		this.kind = kind;
 	}
 
-	public Set<AffixApplication> getАффиксаПриложениеSet() {
-		return Collections.unmodifiableSet(аффиксаПриложениеSet);
+	public Set<AffixApplication> getАффиксаПриложения() {
+		return аффиксаПриложения;
 	}
 
-	public void setАффиксаПриложениеSet(Set<AffixApplication> аффиксаПриложениеSet) {
-		this.аффиксаПриложениеSet = аффиксаПриложениеSet;
+	private void setАффиксаПриложения(Set<AffixApplication> аффиксаПриложения) {
+		this.аффиксаПриложения = аффиксаПриложения;
 	}
 
 	@Override

@@ -5,10 +5,11 @@
     <class>net.elliptica.ling.db.AffixApplication</class>
     <class>net.elliptica.ling.db.ComposedAffixAppl</class>
     <class>net.elliptica.ling.db.Аффикс</class>
+    <class>net.elliptica.ling.db.Слово</class>
     <class>net.elliptica.ling.PoSConverter</class>
     <class>net.elliptica.ling.RangeArrConverter</class>
-    <class>net.elliptica.ling.db.Слово</class>
-    <exclude-unlisted-classes>false</exclude-unlisted-classes>
+    <class>net.elliptica.ling.FlagsConverter</class>
+    <exclude-unlisted-classes>true</exclude-unlisted-classes>
     <properties>
       <property name="eclipselink.weaving" value="static"/>
     </properties>

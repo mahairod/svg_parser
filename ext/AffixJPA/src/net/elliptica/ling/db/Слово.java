@@ -11,6 +11,7 @@
 package net.elliptica.ling.db;
 
 import java.io.Serializable;
+import java.util.HashSet;
 import java.util.Set;
 import javax.persistence.Basic;
 import javax.persistence.CascadeType;
@@ -27,8 +28,11 @@ import javax.persistence.Table;
 import javax.validation.constraints.NotNull;
 import javax.validation.constraints.Size;
 import me.astafiev.веб.сущности.JPAEntity;
+import net.elliptica.ling.FlagsConveter;
 import net.elliptica.ling.PartOfSpeach;
 import net.elliptica.ling.PoSConverter;
+import org.eclipse.persistence.annotations.IdValidation;
+import org.eclipse.persistence.annotations.PrimaryKey;
 
 /**
  *
@@ -36,6 +40,7 @@ import net.elliptica.ling.PoSConverter;
  */
 @Entity
 @Table(name = "word")
+@PrimaryKey(validation = IdValidation.NULL)
 @NamedQueries({
 	@NamedQuery(name = "Слово.findAll", query = "SELECT сл FROM Слово сл"),
 	@NamedQuery(name = "Слово.findById", query = "SELECT сл FROM Слово сл WHERE сл.id = :id"),
@@ -51,7 +56,8 @@ import net.elliptica.ling.PoSConverter;
 	@NamedQuery(name = "Слово.findByAltRest", query = "SELECT сл FROM Слово сл WHERE сл.altRest = :altRest"),
 	@NamedQuery(name = "Слово.findByVariant", query = "SELECT сл FROM Слово сл WHERE сл.variant = :variant"),
 	@NamedQuery(name = "Слово.findByVersion", query = "SELECT сл FROM Слово сл WHERE сл.version = :version"),
-	@NamedQuery(name = "Слово.findByFlags", query = "SELECT сл FROM Слово сл WHERE сл.flags = :flags")})
+//	@NamedQuery(name = "Слово.findByFlags", query = "SELECT сл FROM Слово сл WHERE сл.flags = :flags")
+})
 public class Слово extends JPAEntity implements Serializable {
 	private static final long serialVersionUID = 1L;
 
@@ -104,16 +110,17 @@ public class Слово extends JPAEntity implements Serializable {
 
 	private Character version;
 
-	private Boolean flags;
+//	@Convert(converter = FlagsConveter.class)
+//	private Boolean[] flags;
 
 	@OneToMany(cascade = CascadeType.ALL, mappedBy = "word")
-	private Set<ComposedAffixAppl> composedAffixApplSet;
+	private Set<ComposedAffixAppl> compAffixApplications = new HashSet<>();
 
 	@OneToMany(cascade = CascadeType.ALL, mappedBy = "word")
-	private Set<AffixApplication> аффиксаПриложения;
+	private Set<AffixApplication> аффиксаПриложения = new HashSet<>();
 
 	@OneToMany(cascade = CascadeType.ALL, mappedBy = "parentWord")
-	private Set<AffixApplication> аффиксаПорождения;
+	private Set<AffixApplication> аффиксаПорождения = new HashSet<>();
 
 	public Слово() {
 	}
@@ -233,29 +240,29 @@ public class Слово extends JPAEntity implements Serializable {
 	public void setVersion(Character version) {
 		this.version = version;
 	}
-
-	public Boolean getFlags() {
+/*
+	public Boolean[] getFlags() {
 		return flags;
 	}
 
-	public void setFlags(Boolean flags) {
+	public void setFlags(Boolean[] flags) {
 		this.flags = flags;
 	}
-
+*/
 	public Set<AffixApplication> getАффиксаПриложения() {
 		return аффиксаПриложения;
 	}
 
-	public void setАффиксаПриложения(Set<AffixApplication> аффиксаПриложения) {
+	void setАффиксаПриложения(Set<AffixApplication> аффиксаПриложения) {
 		this.аффиксаПриложения = аффиксаПриложения;
 	}
 
-	public Set<AffixApplication> getАффиксаПриложениеSet1() {
+	public Set<AffixApplication> getАффиксаПорождения() {
 		return аффиксаПорождения;
 	}
 
-	public void setАффиксаПриложениеSet1(Set<AffixApplication> аффиксаПриложениеSet1) {
-		this.аффиксаПорождения = аффиксаПриложениеSet1;
+	void setАффиксаПорождения(Set<AffixApplication> аффиксаПорождения) {
+		this.аффиксаПорождения = аффиксаПорождения;
 	}
 
 	@Override
@@ -299,12 +306,12 @@ public class Слово extends JPAEntity implements Serializable {
 		this.pos2 = pos2;
 	}
 
-	public Set<ComposedAffixAppl> getComposedAffixApplSet() {
-		return composedAffixApplSet;
+	public Set<ComposedAffixAppl> getCompAffixApplications() {
+		return compAffixApplications;
 	}
 
-	public void setComposedAffixApplSet(Set<ComposedAffixAppl> composedAffixApplSet) {
-		this.composedAffixApplSet = composedAffixApplSet;
+	private void setCompAffixApplications(Set<ComposedAffixAppl> compAffixApplications) {
+		this.compAffixApplications = compAffixApplications;
 	}
 
 }
