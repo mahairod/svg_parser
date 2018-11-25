@@ -50,9 +50,6 @@ public class AffixRepairer {
 	private static final Pattern CLEAN_PATT = Pattern.compile("[^а-ёj]+");
 
 	public void updateWordLine(Слово word, final String newLine_) throws AffixConstraintsFailure {
-		if (word.getCompAffixApplications()==null) {
-			throw new AffixConstraintsFailure("Not valid word object: " + word);
-		}
 		if (word.getCompAffixApplications().size() != 1) {
 			throw new AffixConstraintsFailure("Wrong number of composed affices: " + word.getCompAffixApplications().size());
 		}
@@ -85,14 +82,15 @@ public class AffixRepairer {
 		oldRest.removeAll(curAffices.keySet());
 		curCross.retainAll(oldAffices.keySet());
 
-		Set<Integer> restIds = oldRest.stream()
-				.map(oldAffices::get).map(AffixApplication::getId)
+		Set<AffixApplication> restAas = oldRest.stream()
+				.map(oldAffices::get)
 				.collect(Collectors.toSet());
-		if (!restIds.isEmpty()) {
-			word.getАффиксаПриложения().removeIf(of->restIds.contains(of.getId()));
+		for (AffixApplication aa: restAas) {
+			em.remove(aa);
+			word.getАффиксаПриложения().remove(aa);
 		}
 
-//		Слово parentWord = em.createNamedQuery("Слово.findById", Слово.class).setParameter("id", 0).getSingleResult();
+		Слово parentWord = em.createNamedQuery("Слово.findById", Слово.class).setParameter("id", 0).getSingleResult();
 
 		Map<String,AffixApplication> resultAffApps = new TreeMap<>();
 		Map<String,AffixApplication> newAffApps = new HashMap<>(curCross.size());
@@ -117,7 +115,8 @@ public class AffixRepairer {
 			AffixApplication aa = new AffixApplication(null, naa.getOffs(), naa.getLen(), naa.getOrig());
 			AffixApplication.AFF_SETTER.execute(aa, naa.getАффикс());
 			AffixApplication.WORD_SETTER.execute(aa, naa.getWord());
-//			AffixApplication.PAR_WORD_SETTER.execute(aa, naa.getParentWord());
+			AffixApplication.PAR_WORD_SETTER.execute(aa, parentWord);
+			em.persist(aa);
 			resultAffApps.put(en.getKey(), aa);
 		}
 
@@ -143,6 +142,8 @@ public class AffixRepairer {
 			caa.setAffLocs(aff_locs);
 			caa.setValLocs(val_locs);
 		}
+		
+		word.setLine(newLine);
 	}
 
 	private final BiConsumer<ComposedAffixAppl,AffixApplication> aas[] = fillSetters(ComposedAffixAppl.affappl1Setter, ComposedAffixAppl.affappl2Setter, ComposedAffixAppl.affappl3Setter);

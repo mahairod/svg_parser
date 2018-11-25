@@ -9,11 +9,14 @@
  */
 package net.elliptica.ling.ejb;
 
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import javax.annotation.PostConstruct;
 import javax.ejb.Stateless;
 import javax.persistence.EntityManager;
 import javax.persistence.PersistenceContext;
 import javax.transaction.Transactional;
+import net.elliptica.ling.RangeArrConverter;
 import net.elliptica.ling.impl.AffixRepairer;
 import net.elliptica.ling.db.Слово;
 
@@ -43,7 +46,18 @@ public class AffixRepairBean implements AffixRepairBeanRemote, AffixRepairBeanLo
 	@Override
 	@Transactional
 	public void updateWordLine(String newLine, Слово word) throws AffixConstraintsFailure {
-		repairer.updateWordLine(word, newLine);
+		if (word == null || word.getCompAffixApplications()==null) {
+			throw new AffixConstraintsFailure("Not valid word object: " + word);
+		}
+
+		try {
+			repairer.updateWordLine(word, newLine);
+		} catch (StringIndexOutOfBoundsException ex) {
+			final String msg = "Incorrect string supplied";
+			LOG.log(Level.SEVERE, msg, ex);
+			throw new AffixConstraintsFailure(msg, ex);
+		}
 	}
 
+	private static final Logger LOG = Logger.getLogger(RangeArrConverter.class.getName());
 }

@@ -19,6 +19,8 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import javax.persistence.AttributeConverter;
 import javax.persistence.Converter;
 import org.postgresql.util.PGobject;
@@ -39,7 +41,11 @@ public class RangeArrConverter implements AttributeConverter<NumRange[], Object>
 		PGobject зн = new PGobject();
 		try {
 			зн.setType("numrange[]");
-			зн.setValue(Arrays.toString(атрибут));
+			String value = Stream.of(атрибут)
+					.map(r->'"'+r.toString()+'"')
+					.collect(Collectors.toList())
+					.toString().replaceFirst("^\\[", "{").replaceFirst("\\]$", "}");
+			зн.setValue(value);
 		} catch (SQLException ex) {
 			ЖУРНАЛ.log(Level.SEVERE, null, ex);
 		}
