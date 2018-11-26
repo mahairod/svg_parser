@@ -2,10 +2,10 @@
 <persistence version="2.1" xmlns="http://xmlns.jcp.org/xml/ns/persistence" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://xmlns.jcp.org/xml/ns/persistence http://xmlns.jcp.org/xml/ns/persistence/persistence_2_1.xsd">
   <persistence-unit name="AffixJPAPU" transaction-type="RESOURCE_LOCAL">
     <provider>org.eclipse.persistence.jpa.PersistenceProvider</provider>
-    <class>net.elliptica.ling.db.ComposedAffixAppl</class>
     <class>net.elliptica.ling.db.Аффикс</class>
-    <class>net.elliptica.ling.db.AffixApplication</class>
     <class>net.elliptica.ling.db.Слово</class>
+    <class>net.elliptica.ling.db.АффиксаПриложение</class>
+    <class>net.elliptica.ling.db.КомпозитноеПриложениеАффиксов</class>
     <properties>
       <property name="javax.persistence.jdbc.url" value="jdbc:postgresql://localhost:5432/spyvk"/>
       <property name="javax.persistence.jdbc.user" value="spyvk"/>

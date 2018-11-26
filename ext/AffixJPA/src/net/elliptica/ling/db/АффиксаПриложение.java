@@ -37,20 +37,20 @@ import me.astafiev.веб.сущности.JPAEntity;
 @Entity
 @Table(name = "affix_appl")
 @NamedQueries({
-	@NamedQuery(name = "AffixApplication.findAll", query = "SELECT \u0430 FROM AffixApplication \u0430"),
-	@NamedQuery(name = "AffixApplication.findByOffs", query = "SELECT \u0430 FROM AffixApplication \u0430 WHERE \u0430.offs = :offs"),
-	@NamedQuery(name = "AffixApplication.findByLen", query = "SELECT \u0430 FROM AffixApplication \u0430 WHERE \u0430.len = :len"),
-	@NamedQuery(name = "AffixApplication.findByOrig", query = "SELECT \u0430 FROM AffixApplication \u0430 WHERE \u0430.orig = :orig"),
-	@NamedQuery(name = "AffixApplication.findById", query = "SELECT \u0430 FROM AffixApplication \u0430 WHERE \u0430.id = :id")})
-public class AffixApplication extends JPAEntity implements Serializable {
+	@NamedQuery(name = "АффиксаПриложение.findAll", query = "SELECT ап FROM АффиксаПриложение ап"),
+	@NamedQuery(name = "АффиксаПриложение.findByOffs", query = "SELECT ап FROM АффиксаПриложение ап WHERE ап.offs = :offs"),
+	@NamedQuery(name = "АффиксаПриложение.findByLen", query = "SELECT ап FROM АффиксаПриложение ап WHERE ап.len = :len"),
+	@NamedQuery(name = "АффиксаПриложение.findByOrig", query = "SELECT ап FROM АффиксаПриложение ап WHERE ап.orig = :orig"),
+	@NamedQuery(name = "АффиксаПриложение.findById", query = "SELECT ап FROM АффиксаПриложение ап WHERE ап.id = :id")})
+public class АффиксаПриложение extends JPAEntity implements Serializable {
 	private static final long serialVersionUID = 1L;
 
-	public static MultiLinkUpdate<AffixApplication,Аффикс> AFF_SETTER
-			= new MultiLinkUpdate<>(AffixApplication::getАффикс, AffixApplication::setАффикс, Аффикс::getАффиксаПриложения);
-	public static MultiLinkUpdate<AffixApplication,Слово> WORD_SETTER
-			= new MultiLinkUpdate<>(AffixApplication::getWord, AffixApplication::setWord, Слово::getАффиксаПриложения);
-	public static MultiLinkUpdate<AffixApplication,Слово> PAR_WORD_SETTER
-			= new MultiLinkUpdate<>(AffixApplication::getParentWord, AffixApplication::setParentWord, Слово::getАффиксаПорождения);
+	public static MultiLinkUpdate<АффиксаПриложение,Аффикс> AFF_SETTER
+			= new MultiLinkUpdate<>(АффиксаПриложение::getАффикс, АффиксаПриложение::setАффикс, Аффикс::getАффиксаПриложения);
+	public static MultiLinkUpdate<АффиксаПриложение,Слово> WORD_SETTER
+			= new MultiLinkUpdate<>(АффиксаПриложение::getWord, АффиксаПриложение::setWord, Слово::getАффиксаПриложения);
+	public static MultiLinkUpdate<АффиксаПриложение,Слово> PAR_WORD_SETTER
+			= new MultiLinkUpdate<>(АффиксаПриложение::getParentWord, АффиксаПриложение::setParentWord, Слово::getАффиксаПорождения);
 
 	@Basic(optional = false)
 	@NotNull
@@ -70,13 +70,13 @@ public class AffixApplication extends JPAEntity implements Serializable {
 	private Аффикс аффикс;
 
 	@OneToMany(cascade = CascadeType.ALL, mappedBy = "affappl1")
-	private Set<ComposedAffixAppl> composedAffixApplSet1 = new HashSet<>();
+	private Set<КомпозитноеПриложениеАффиксов> composedAffixApplSet1 = new HashSet<>();
 
 	@OneToMany(mappedBy = "affappl2")
-	private Set<ComposedAffixAppl> composedAffixApplSet2 = new HashSet<>();
+	private Set<КомпозитноеПриложениеАффиксов> composedAffixApplSet2 = new HashSet<>();
 
 	@OneToMany(mappedBy = "affappl3")
-	private Set<ComposedAffixAppl> composedAffixApplSet3 = new HashSet<>();
+	private Set<КомпозитноеПриложениеАффиксов> composedAffixApplSet3 = new HashSet<>();
 
 	@Id
 	@GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -91,26 +91,26 @@ public class AffixApplication extends JPAEntity implements Serializable {
 	@ManyToOne(optional = true)
 	private Слово parentWord;
 
-	public AffixApplication() {
+	public АффиксаПриложение() {
 	}
 
-	public AffixApplication(Integer id) {
+	public АффиксаПриложение(Integer id) {
 		this.id = id;
 	}
 
-	public AffixApplication(Integer id, short offs, short len, String orig) {
+	public АффиксаПриложение(Integer id, short offs, short len, String orig) {
 		this.id = id;
 		this.offs = offs;
 		this.len = len;
 		this.orig = orig;
 	}
 
-	public static AffixApplication fromJava(short offs, short len, String orig) {
-		return new AffixApplication(null, (short) (offs + 1), len, orig);
+	public static АффиксаПриложение fromJava(short offs, short len, String orig) {
+		return new АффиксаПриложение(null, (short) (offs + 1), len, orig);
 	}
 
-	public static AffixApplication copy(AffixApplication orig, Аффикс aff, Слово word) {
-		AffixApplication aa = new AffixApplication(null, orig.offs, orig.len, orig.orig);
+	public static АффиксаПриложение copy(АффиксаПриложение orig, Аффикс aff, Слово word) {
+		АффиксаПриложение aa = new АффиксаПриложение(null, orig.offs, orig.len, orig.orig);
 		aa.setАффикс(aff);
 		aa.setWord(word);
 		return aa;
@@ -182,10 +182,10 @@ public class AffixApplication extends JPAEntity implements Serializable {
 	@Override
 	public boolean equals(Object object) {
 		// TODO: Warning - this method won't work in the case the id fields are not set
-		if (!(object instanceof AffixApplication)) {
+		if (!(object instanceof АффиксаПриложение)) {
 			return false;
 		}
-		AffixApplication other = (AffixApplication) object;
+		АффиксаПриложение other = (АффиксаПриложение) object;
 		if ((this.id == null && other.id != null) || (this.id != null && !this.id.equals(other.id))) {
 			return false;
 		}
@@ -194,30 +194,30 @@ public class AffixApplication extends JPAEntity implements Serializable {
 
 	@Override
 	public String toString() {
-		return "net.elliptica.svg.db.AffixApplication[ id=" + id + " ]";
+		return "net.elliptica.svg.db.АффиксаПриложение[ id=" + id + " ]";
 	}
 
-	public Set<ComposedAffixAppl> getComposedAffixApplSet1() {
+	public Set<КомпозитноеПриложениеАффиксов> getComposedAffixApplSet1() {
 		return composedAffixApplSet1;
 	}
 
-	private void setComposedAffixApplSet1(Set<ComposedAffixAppl> composedAffixApplSet1) {
+	private void setComposedAffixApplSet1(Set<КомпозитноеПриложениеАффиксов> composedAffixApplSet1) {
 		this.composedAffixApplSet1 = composedAffixApplSet1;
 	}
 
-	public Set<ComposedAffixAppl> getComposedAffixApplSet2() {
+	public Set<КомпозитноеПриложениеАффиксов> getComposedAffixApplSet2() {
 		return composedAffixApplSet2;
 	}
 
-	private void setComposedAffixApplSet2(Set<ComposedAffixAppl> composedAffixApplSet2) {
+	private void setComposedAffixApplSet2(Set<КомпозитноеПриложениеАффиксов> composedAffixApplSet2) {
 		this.composedAffixApplSet2 = composedAffixApplSet2;
 	}
 
-	public Set<ComposedAffixAppl> getComposedAffixApplSet3() {
+	public Set<КомпозитноеПриложениеАффиксов> getComposedAffixApplSet3() {
 		return composedAffixApplSet3;
 	}
 
-	private void setComposedAffixApplSet3(Set<ComposedAffixAppl> composedAffixApplSet3) {
+	private void setComposedAffixApplSet3(Set<КомпозитноеПриложениеАффиксов> composedAffixApplSet3) {
 		this.composedAffixApplSet3 = composedAffixApplSet3;
 	}
 

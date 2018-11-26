@@ -24,8 +24,8 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import javax.persistence.EntityManager;
-import net.elliptica.ling.db.AffixApplication;
-import net.elliptica.ling.db.ComposedAffixAppl;
+import net.elliptica.ling.db.АффиксаПриложение;
+import net.elliptica.ling.db.КомпозитноеПриложениеАффиксов;
 import net.elliptica.ling.db.NumRange;
 import net.elliptica.ling.db.Аффикс;
 import net.elliptica.ling.db.Слово;
@@ -57,7 +57,7 @@ public class AffixRepairer {
 
 		word = em.find(Слово.class, word.getId());
 
-		Map<String,AffixApplication> curAffices = new HashMap<>();
+		Map<String,АффиксаПриложение> curAffices = new HashMap<>();
 		Map<String,String> typeMap = new HashMap<>();
 		Matcher m = AFFIX_PATT.matcher(newLine);
 		String type;
@@ -69,12 +69,12 @@ public class AffixRepairer {
 			for (; groups[ind] == null; ind++) {}
 			short offs = (short) m.start(ind);
 			type = types[ind];
-			AffixApplication ап = AffixApplication.fromJava(offs, (short)(m.end(ind)-offs), groups[ind]);
+			АффиксаПриложение ап = АффиксаПриложение.fromJava(offs, (short)(m.end(ind)-offs), groups[ind]);
 			String key = key(newLine, ап.getOffs(), ап.getLen());
 			typeMap.put(key, type);
 			curAffices.put(key, ап);
 		}
-		Map<String,AffixApplication> oldAffices = word.getАффиксаПриложения().stream()
+		Map<String,АффиксаПриложение> oldAffices = word.getАффиксаПриложения().stream()
 				.collect(Collectors.toMap(aa -> key(aa.getWord().getLine(), aa.getOffs(), aa.getLen()), aa->aa));
 
 		Set<String> oldRest = new HashSet<>(oldAffices.keySet());
@@ -84,12 +84,12 @@ public class AffixRepairer {
 
 //		Слово parentWord = em.createNamedQuery("Слово.findById", Слово.class).setParameter("id", 0).getSingleResult();
 
-		Map<String,AffixApplication> resultAffApps = new TreeMap<>();
-		Map<String,AffixApplication> newAffApps = new HashMap<>(curCross.size());
-		for (Entry<String,AffixApplication> en: curAffices.entrySet()) {
-			AffixApplication maa = en.getValue();
+		Map<String,АффиксаПриложение> resultAffApps = new TreeMap<>();
+		Map<String,АффиксаПриложение> newAffApps = new HashMap<>(curCross.size());
+		for (Entry<String,АффиксаПриложение> en: curAffices.entrySet()) {
+			АффиксаПриложение maa = en.getValue();
 			if (curCross.contains(en.getKey())) {
-				AffixApplication oaa = oldAffices.get(en.getKey());
+				АффиксаПриложение oaa = oldAffices.get(en.getKey());
 				// just fill new info
 				oaa.setLen(maa.getLen());
 				oaa.setOffs(maa.getOffs());
@@ -98,29 +98,33 @@ public class AffixRepairer {
 			} else {
 				// add new
 				Аффикс aff = findNewAffix(maa, typeMap.get(en.getKey()));
-				newAffApps.put(en.getKey(), AffixApplication.copy(maa, aff, word));
+				newAffApps.put(en.getKey(), АффиксаПриложение.copy(maa, aff, word));
 			}
 		}
 
-		for (Entry<String,AffixApplication> en: newAffApps.entrySet()) {
-			AffixApplication naa = en.getValue();
+		for (Entry<String,АффиксаПриложение> en: newAffApps.entrySet()) {
+			АффиксаПриложение naa = en.getValue();
 			// add new
-			AffixApplication aa = new AffixApplication(null, naa.getOffs(), naa.getLen(), naa.getOrig());
-			AffixApplication.AFF_SETTER.execute(aa, naa.getАффикс());
-			AffixApplication.WORD_SETTER.execute(aa, naa.getWord());
-//			AffixApplication.PAR_WORD_SETTER.execute(aa, parentWord);
+			АффиксаПриложение aa = new АффиксаПриложение(null, naa.getOffs(), naa.getLen(), naa.getOrig());
+			АффиксаПриложение.AFF_SETTER.execute(aa, naa.getАффикс());
+			АффиксаПриложение.WORD_SETTER.execute(aa, naa.getWord());
+//			АффиксаПриложение.PAR_WORD_SETTER.execute(aa, parentWord);
+
+			Аффикс a = aa.getАффикс();
+			a.setQty(a.getQty() + 1);
+
 			em.persist(aa);
 			resultAffApps.put(en.getKey(), aa);
 		}
 
 		{
-			ComposedAffixAppl caa = word.getCompAffixApplications().iterator().next();
+			КомпозитноеПриложениеАффиксов caa = word.getCompAffixApplications().iterator().next();
 			int i=0;
 			int prevEnd = 1;
 			NumRange[] aff_locs = new NumRange[resultAffApps.size()];
 			NumRange[] val_locs = new NumRange[resultAffApps.size()+1];
-			for (Entry<String,AffixApplication> aaen: resultAffApps.entrySet()) {
-				AffixApplication aa = aaen.getValue();
+			for (Entry<String,АффиксаПриложение> aaen: resultAffApps.entrySet()) {
+				АффиксаПриложение aa = aaen.getValue();
 				aas[i].accept(caa, aa);
 				as[i].accept(caa, aa.getАффикс());
 				val_locs[i] = new NumRange(prevEnd, (int)aa.getOffs());
@@ -136,23 +140,25 @@ public class AffixRepairer {
 			caa.setValLocs(val_locs);
 		}
 		
-		Set<AffixApplication> restAas = oldRest.stream().map(oldAffices::get).collect(Collectors.toSet());
-		for (AffixApplication aa: restAas) {
+		Set<АффиксаПриложение> restAas = oldRest.stream().map(oldAffices::get).collect(Collectors.toSet());
+		for (АффиксаПриложение aa: restAas) {
 			em.remove(aa);
+			Аффикс a = aa.getАффикс();
+			a.setQty(a.getQty() - 1);
 			word.getАффиксаПриложения().remove(aa);
 		}
 
 		word.setLine(newLine);
 	}
 
-	private final BiConsumer<ComposedAffixAppl,AffixApplication> aas[] = fillSetters(ComposedAffixAppl.affappl1Setter, ComposedAffixAppl.affappl2Setter, ComposedAffixAppl.affappl3Setter);
-	private final BiConsumer<ComposedAffixAppl,Аффикс> as[] = fillSetters(ComposedAffixAppl::setAffix1, ComposedAffixAppl::setAffix2, ComposedAffixAppl::setAffix3);
+	private final BiConsumer<КомпозитноеПриложениеАффиксов,АффиксаПриложение> aas[] = fillSetters(КомпозитноеПриложениеАффиксов.affappl1Setter, КомпозитноеПриложениеАффиксов.affappl2Setter, КомпозитноеПриложениеАффиксов.affappl3Setter);
+	private final BiConsumer<КомпозитноеПриложениеАффиксов,Аффикс> as[] = fillSetters(КомпозитноеПриложениеАффиксов::setAffix1, КомпозитноеПриложениеАффиксов::setAffix2, КомпозитноеПриложениеАффиксов::setAffix3);
 
 	private <R,P> BiConsumer<R,P>[] fillSetters(BiConsumer<R,P>... setters) {
 		return setters;
 	}
 
-	private Аффикс findNewAffix(AffixApplication naa, String type) {
+	private Аффикс findNewAffix(АффиксаПриложение naa, String type) {
 		String val = CLEAN_PATT.matcher(naa.getOrig()).replaceAll("");
 		List<Аффикс> affs = em.createNamedQuery("Аффикс.findByVal").setParameter("val", val).getResultList();
 		return affs.stream().filter(a-> a.getKind().equals(type))

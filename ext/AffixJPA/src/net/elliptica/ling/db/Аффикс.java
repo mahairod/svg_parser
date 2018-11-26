@@ -62,7 +62,7 @@ public class Аффикс extends JPAEntity implements Serializable {
 	private String kind;
 
 	@OneToMany(cascade = CascadeType.ALL, mappedBy = "аффикс")
-	private Set<AffixApplication> аффиксаПриложения = new HashSet<>();
+	private Set<АффиксаПриложение> аффиксаПриложения = new HashSet<>();
 
 	public Аффикс() {
 	}
@@ -110,11 +110,11 @@ public class Аффикс extends JPAEntity implements Serializable {
 		this.kind = kind;
 	}
 
-	public Set<AffixApplication> getАффиксаПриложения() {
+	public Set<АффиксаПриложение> getАффиксаПриложения() {
 		return аффиксаПриложения;
 	}
 
-	private void setАффиксаПриложения(Set<AffixApplication> аффиксаПриложения) {
+	private void setАффиксаПриложения(Set<АффиксаПриложение> аффиксаПриложения) {
 		this.аффиксаПриложения = аффиксаПриложения;
 	}
 

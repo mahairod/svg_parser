@@ -114,13 +114,13 @@ public class Слово extends JPAEntity implements Serializable {
 //	private Boolean[] flags;
 
 	@OneToMany(cascade = CascadeType.ALL, mappedBy = "word")
-	private Set<ComposedAffixAppl> compAffixApplications = new HashSet<>();
+	private Set<КомпозитноеПриложениеАффиксов> compAffixApplications = new HashSet<>();
 
 	@OneToMany(cascade = CascadeType.ALL, mappedBy = "word")
-	private Set<AffixApplication> аффиксаПриложения = new HashSet<>();
+	private Set<АффиксаПриложение> аффиксаПриложения = new HashSet<>();
 
 	@OneToMany(cascade = CascadeType.ALL, mappedBy = "parentWord")
-	private Set<AffixApplication> аффиксаПорождения = new HashSet<>();
+	private Set<АффиксаПриложение> аффиксаПорождения = new HashSet<>();
 
 	public Слово() {
 	}
@@ -249,19 +249,19 @@ public class Слово extends JPAEntity implements Serializable {
 		this.flags = flags;
 	}
 */
-	public Set<AffixApplication> getАффиксаПриложения() {
+	public Set<АффиксаПриложение> getАффиксаПриложения() {
 		return аффиксаПриложения;
 	}
 
-	void setАффиксаПриложения(Set<AffixApplication> аффиксаПриложения) {
+	void setАффиксаПриложения(Set<АффиксаПриложение> аффиксаПриложения) {
 		this.аффиксаПриложения = аффиксаПриложения;
 	}
 
-	public Set<AffixApplication> getАффиксаПорождения() {
+	public Set<АффиксаПриложение> getАффиксаПорождения() {
 		return аффиксаПорождения;
 	}
 
-	void setАффиксаПорождения(Set<AffixApplication> аффиксаПорождения) {
+	void setАффиксаПорождения(Set<АффиксаПриложение> аффиксаПорождения) {
 		this.аффиксаПорождения = аффиксаПорождения;
 	}
 
@@ -306,11 +306,11 @@ public class Слово extends JPAEntity implements Serializable {
 		this.pos2 = pos2;
 	}
 
-	public Set<ComposedAffixAppl> getCompAffixApplications() {
+	public Set<КомпозитноеПриложениеАффиксов> getCompAffixApplications() {
 		return compAffixApplications;
 	}
 
-	private void setCompAffixApplications(Set<ComposedAffixAppl> compAffixApplications) {
+	private void setCompAffixApplications(Set<КомпозитноеПриложениеАффиксов> compAffixApplications) {
 		this.compAffixApplications = compAffixApplications;
 	}
 

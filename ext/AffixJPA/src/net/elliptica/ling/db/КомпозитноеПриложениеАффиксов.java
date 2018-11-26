@@ -26,20 +26,20 @@ import net.elliptica.ling.RangeArrConverter;
 @Entity
 @Table(name = "composed_affix_appl")
 @NamedQueries({
-	@NamedQuery(name = "ComposedAffixAppl.findAll", query = "SELECT c FROM ComposedAffixAppl c")})
-public class ComposedAffixAppl extends JPAEntity implements Serializable {
+	@NamedQuery(name = "КомпозитАффиксов.findAll", query = "SELECT c FROM КомпозитноеПриложениеАффиксов c")})
+public class КомпозитноеПриложениеАффиксов extends JPAEntity implements Serializable {
 	private static final long serialVersionUID = 1L;
 
-	public static MultiLinkUpdate<ComposedAffixAppl,AffixApplication> affappl1Setter
-			= new MultiLinkUpdate<>(ComposedAffixAppl::getAffappl1, ComposedAffixAppl::setAffappl1, AffixApplication::getComposedAffixApplSet1);
-	public static MultiLinkUpdate<ComposedAffixAppl,AffixApplication> affappl2Setter
-			= new MultiLinkUpdate<>(ComposedAffixAppl::getAffappl2, ComposedAffixAppl::setAffappl2, AffixApplication::getComposedAffixApplSet2);
-	public static MultiLinkUpdate<ComposedAffixAppl,AffixApplication> affappl3Setter
-			= new MultiLinkUpdate<>(ComposedAffixAppl::getAffappl3, ComposedAffixAppl::setAffappl3, AffixApplication::getComposedAffixApplSet3);
-	public static MultiLinkUpdate<ComposedAffixAppl,Слово> wordSetter
-			= new MultiLinkUpdate<>(ComposedAffixAppl::getWord, ComposedAffixAppl::setWord, Слово::getCompAffixApplications);
-	public static MultiLinkUpdate<ComposedAffixAppl,ComposedAffixAppl> parentSetter
-			= new MultiLinkUpdate<>(ComposedAffixAppl::getParent, ComposedAffixAppl::setParent, ComposedAffixAppl::getChildren);
+	public static MultiLinkUpdate<КомпозитноеПриложениеАффиксов,АффиксаПриложение> affappl1Setter
+			= new MultiLinkUpdate<>(КомпозитноеПриложениеАффиксов::getAffappl1, КомпозитноеПриложениеАффиксов::setAffappl1, АффиксаПриложение::getComposedAffixApplSet1);
+	public static MultiLinkUpdate<КомпозитноеПриложениеАффиксов,АффиксаПриложение> affappl2Setter
+			= new MultiLinkUpdate<>(КомпозитноеПриложениеАффиксов::getAffappl2, КомпозитноеПриложениеАффиксов::setAffappl2, АффиксаПриложение::getComposedAffixApplSet2);
+	public static MultiLinkUpdate<КомпозитноеПриложениеАффиксов,АффиксаПриложение> affappl3Setter
+			= new MultiLinkUpdate<>(КомпозитноеПриложениеАффиксов::getAffappl3, КомпозитноеПриложениеАффиксов::setAffappl3, АффиксаПриложение::getComposedAffixApplSet3);
+	public static MultiLinkUpdate<КомпозитноеПриложениеАффиксов,Слово> wordSetter
+			= new MultiLinkUpdate<>(КомпозитноеПриложениеАффиксов::getWord, КомпозитноеПриложениеАффиксов::setWord, Слово::getCompAffixApplications);
+	public static MultiLinkUpdate<КомпозитноеПриложениеАффиксов,КомпозитноеПриложениеАффиксов> parentSetter
+			= new MultiLinkUpdate<>(КомпозитноеПриложениеАффиксов::getParent, КомпозитноеПриложениеАффиксов::setParent, КомпозитноеПриложениеАффиксов::getChildren);
 
 	@Convert(converter = RangeArrConverter.class)
 	@Basic(optional = false)
@@ -72,18 +72,18 @@ public class ComposedAffixAppl extends JPAEntity implements Serializable {
 
 	@JoinColumn(name = "affappl1", referencedColumnName = "id")
 	@ManyToOne(optional = false)
-	private AffixApplication affappl1;
+	private АффиксаПриложение affappl1;
 
 	@JoinColumn(name = "affappl2", referencedColumnName = "id")
 	@ManyToOne
-	private AffixApplication affappl2;
+	private АффиксаПриложение affappl2;
 
 	@JoinColumn(name = "affappl3", referencedColumnName = "id")
 	@ManyToOne
-	private AffixApplication affappl3;
+	private АффиксаПриложение affappl3;
 
 	@OneToMany(mappedBy = "parent")
-	private Set<ComposedAffixAppl> children = new HashSet<>();
+	private Set<КомпозитноеПриложениеАффиксов> children = new HashSet<>();
 
 	@JoinColumn(name = "word", referencedColumnName = "id")
 	@ManyToOne(optional = false)
@@ -91,16 +91,16 @@ public class ComposedAffixAppl extends JPAEntity implements Serializable {
 
 	@JoinColumn(name = "parent", referencedColumnName = "id")
 	@ManyToOne
-	private ComposedAffixAppl parent;
+	private КомпозитноеПриложениеАффиксов parent;
 
-	public ComposedAffixAppl() {
+	public КомпозитноеПриложениеАффиксов() {
 	}
 
-	public ComposedAffixAppl(Integer id) {
+	public КомпозитноеПриложениеАффиксов(Integer id) {
 		this.id = id;
 	}
 
-	public ComposedAffixAppl(Integer id, Слово word, NumRange[] valLocs, NumRange[] affLocs) {
+	public КомпозитноеПриложениеАффиксов(Integer id, Слово word, NumRange[] valLocs, NumRange[] affLocs) {
 		this.id = id;
 		this.word = word;
 		this.valLocs = valLocs;
@@ -155,43 +155,43 @@ public class ComposedAffixAppl extends JPAEntity implements Serializable {
 		this.affix3 = affix3;
 	}
 
-	public AffixApplication getAffappl1() {
+	public АффиксаПриложение getAffappl1() {
 		return affappl1;
 	}
 
-	private void setAffappl1(AffixApplication affappl1) {
+	private void setAffappl1(АффиксаПриложение affappl1) {
 		this.affappl1 = affappl1;
 	}
 
-	public AffixApplication getAffappl2() {
+	public АффиксаПриложение getAffappl2() {
 		return affappl2;
 	}
 
-	private void setAffappl2(AffixApplication affappl2) {
+	private void setAffappl2(АффиксаПриложение affappl2) {
 		this.affappl2 = affappl2;
 	}
 
-	public AffixApplication getAffappl3() {
+	public АффиксаПриложение getAffappl3() {
 		return affappl3;
 	}
 
-	private void setAffappl3(AffixApplication affappl3) {
+	private void setAffappl3(АффиксаПриложение affappl3) {
 		this.affappl3 = affappl3;
 	}
 
-	public Set<ComposedAffixAppl> getChildren() {
+	public Set<КомпозитноеПриложениеАффиксов> getChildren() {
 		return children;
 	}
 
-	private void setChildren(Set<ComposedAffixAppl> children) {
+	private void setChildren(Set<КомпозитноеПриложениеАффиксов> children) {
 		this.children = children;
 	}
 
-	public ComposedAffixAppl getParent() {
+	public КомпозитноеПриложениеАффиксов getParent() {
 		return parent;
 	}
 
-	private void setParent(ComposedAffixAppl parent) {
+	private void setParent(КомпозитноеПриложениеАффиксов parent) {
 		this.parent = parent;
 	}
 
@@ -205,10 +205,10 @@ public class ComposedAffixAppl extends JPAEntity implements Serializable {
 	@Override
 	public boolean equals(Object object) {
 		// TODO: Warning - this method won't work in the case the id fields are not set
-		if (!(object instanceof ComposedAffixAppl)) {
+		if (!(object instanceof КомпозитноеПриложениеАффиксов)) {
 			return false;
 		}
-		ComposedAffixAppl other = (ComposedAffixAppl) object;
+		КомпозитноеПриложениеАффиксов other = (КомпозитноеПриложениеАффиксов) object;
 		if ((this.id == null && other.id != null) || (this.id != null && !this.id.equals(other.id))) {
 			return false;
 		}
