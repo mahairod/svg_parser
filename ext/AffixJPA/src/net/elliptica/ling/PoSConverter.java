@@ -10,6 +10,7 @@
 
 package net.elliptica.ling;
 
+import java.io.Serializable;
 import java.sql.SQLException;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -23,7 +24,7 @@ import org.postgresql.util.PGobject;
  * @автор Антон Александрович Астафьев {@буквально <anton@astafiev.me>} (Anton Astafiev)
  */
 @Converter
-public class PoSConverter implements AttributeConverter<PartOfSpeach, Object> {
+public class PoSConverter implements AttributeConverter<PartOfSpeach, Object>, Serializable {
 
 	@Override
 	public PGobject convertToDatabaseColumn(PartOfSpeach атрибут) {

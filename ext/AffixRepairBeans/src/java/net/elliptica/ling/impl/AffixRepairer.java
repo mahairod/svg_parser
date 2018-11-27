@@ -50,12 +50,12 @@ public class AffixRepairer {
 	private static final Pattern CLEAN_PATT = Pattern.compile("[^а-ёj]+");
 
 	public void updateWordLine(Слово word, final String newLine_) throws AffixConstraintsFailure {
+		word = em.find(Слово.class, word.getId());
+
 		if (word.getCompAffixApplications().size() != 1) {
 			throw new AffixConstraintsFailure("Wrong number of composed affices: " + word.getCompAffixApplications().size());
 		}
 		final String newLine = newLine_.startsWith("") ? newLine_ : "" + newLine_;
-
-		word = em.find(Слово.class, word.getId());
 
 		Map<String,АффиксаПриложение> curAffices = new HashMap<>();
 		Map<String,String> typeMap = new HashMap<>();

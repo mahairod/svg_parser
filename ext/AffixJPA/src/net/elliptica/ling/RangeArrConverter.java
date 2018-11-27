@@ -10,6 +10,7 @@
 
 package net.elliptica.ling;
 
+import java.io.Serializable;
 import net.elliptica.ling.db.NumRange;
 import java.sql.SQLException;
 import java.util.ArrayList;
@@ -31,7 +32,7 @@ import org.postgresql.util.PGobject;
  * @автор Антон Александрович Астафьев {@буквально <anton@astafiev.me>} (Anton Astafiev)
  */
 @Converter
-public class RangeArrConverter implements AttributeConverter<NumRange[], Object> {
+public class RangeArrConverter implements AttributeConverter<NumRange[], Object>, Serializable {
 
 	@Override
 	public PGobject convertToDatabaseColumn(NumRange[] атрибут) {
